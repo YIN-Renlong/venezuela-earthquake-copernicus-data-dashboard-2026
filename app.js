@@ -357,7 +357,7 @@ const layerVisibility = {
   damaged: true,
   destroyed: true,
   roads: true,
-  notAnalysed: false,
+  notAnalysed: true,
 };
 
 const loadedSourceMeta = {};
@@ -612,7 +612,10 @@ function setBasemap(mode) {
     els.labelsToggle.disabled = currentBasemap !== "satellite";
   }
 
-  if (!mapReady) return;
+  if (!mapReady) {
+    applyLayerVisibility();
+    return;
+  }
 
   setLayerVisibility(BASE_LAYER_IDS.satellite, currentBasemap === "satellite");
   setLayerVisibility(BASE_LAYER_IDS.street, currentBasemap === "street");
@@ -1893,6 +1896,33 @@ function damageFilterExpression() {
 }
 
 function applyLayerVisibility() {
+  const notAnalysedAllowed = currentBasemap === "street";
+  const notAnalysedInput = document.querySelector('[data-layer-toggle="notAnalysed"]');
+
+  if (notAnalysedInput) {
+    const row = notAnalysedInput.closest(".legend-toggle");
+
+    notAnalysedInput.disabled = !notAnalysedAllowed;
+
+    // In satellite mode, show it as unavailable/off.
+    // In street-map mode, restore the user's selected state.
+    notAnalysedInput.checked = notAnalysedAllowed
+      ? Boolean(layerVisibility.notAnalysed)
+      : false;
+
+    if (row) {
+      row.classList.toggle("disabled", !notAnalysedAllowed);
+      row.classList.toggle(
+        "off",
+        !notAnalysedAllowed || !layerVisibility.notAnalysed
+      );
+
+      row.title = notAnalysedAllowed
+        ? ""
+        : "Disponible solo en el mapa de calles.";
+    }
+  }
+
   if (!mapReady || !map) {
     return;
   }
@@ -1909,30 +1939,11 @@ function applyLayerVisibility() {
 
   setLayerVisibility("transportation-lines", layerVisibility.roads);
 
-  const notAnalysedAllowed = currentBasemap === "street";
   const showNotAnalysed = notAnalysedAllowed && layerVisibility.notAnalysed;
 
   setLayerVisibility("not-analysed-fill", showNotAnalysed);
   setLayerVisibility("not-analysed-hatch-fill", showNotAnalysed);
   setLayerVisibility("not-analysed-outline", showNotAnalysed);
-
-  const notAnalysedInput = document.querySelector('[data-layer-toggle="notAnalysed"]');
-
-  if (notAnalysedInput) {
-    const row = notAnalysedInput.closest(".legend-toggle");
-
-    notAnalysedInput.disabled = !notAnalysedAllowed;
-    notAnalysedInput.checked = showNotAnalysed;
-
-    if (row) {
-      row.classList.toggle("disabled", !notAnalysedAllowed);
-      row.classList.toggle("off", !showNotAnalysed);
-
-      row.title = notAnalysedAllowed
-        ? ""
-        : "Disponible solo en el mapa de calles.";
-    }
-  }
 }
 
 
