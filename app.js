@@ -29,6 +29,12 @@ const COPERNICUS_FORCE_REFRESH = (() => {
   );
 })();
 
+// Layer JSON cache for the current browser tab/session.
+// This prevents re-downloading large GeoJSON files when the user switches
+// from one AOI to another and then returns to the previous AOI.
+const JSON_DOCUMENT_MEMORY_CACHE = new Map();
+
+
 const CARACAS = {
   id: "AOI02",
   name: "Caracas",
@@ -58,6 +64,68 @@ const AOI_LAYER_IDS = [
   "aoi-outline",
 ];
 
+const GROUND_MOVEMENT_CLASSES = [
+  {
+    key: "groundNegHigh",
+    id: "neg-high",
+    value: "-0.5 to -0.2",
+    color: "#4965ad",
+  },
+  {
+    key: "groundNegMedium",
+    id: "neg-medium",
+    value: "-0.2 to -0.1",
+    color: "#76a3c7",
+  },
+  {
+    key: "groundNegLow",
+    id: "neg-low",
+    value: "-0.1 to -0.05",
+    color: "#b4d8e7",
+  },
+  {
+    key: "groundNearZeroNeg",
+    id: "near-zero-neg",
+    value: "-0.05 to 0",
+    color: "#e4f3f8",
+  },
+  {
+    key: "groundNearZeroPos",
+    id: "near-zero-pos",
+    value: "0 to 0.05",
+    color: "#fee6a6",
+  },
+  {
+    key: "groundPosLow",
+    id: "pos-low",
+    value: "0.05 to 0.1",
+    color: "#f6ad68",
+  },
+  {
+    key: "groundPosMedium",
+    id: "pos-medium",
+    value: "0.1 to 0.2",
+    color: "#e56845",
+  },
+  {
+    key: "groundPosHigh",
+    id: "pos-high",
+    value: "0.2 to 0.5",
+    color: "#be2f2f",
+  },
+  {
+    key: "groundAboveHigh",
+    id: "above-high",
+    value: "Above 0.5",
+    color: "#9e182c",
+  },
+];
+
+const GROUND_MOVEMENT_LAYER_IDS = GROUND_MOVEMENT_CLASSES.flatMap((item) => [
+  `ground-movement-${item.id}-fill`,
+  `ground-movement-${item.id}-outline`,
+]);
+
 const DATA_LAYER_IDS = [
   "built-up-fill",
   "built-up-outline",
@@ -68,6 +136,8 @@ const DATA_LAYER_IDS = [
 
   ...TRANSPORTATION_LAYER_IDS,
 
+
+  ...GROUND_MOVEMENT_LAYER_IDS,
   "not-analysed-fill",
   "not-analysed-hatch-fill",
   "not-analysed-outline",
@@ -84,12 +154,14 @@ const COPERNICUS_URL_OVERRIDES = {
   builtUpA: "",
   transportationL: "",
   notAnalysedA: "",
+  groundMovementA: "",
 };
 
 const SOURCE_IDS = {
   builtUpA: "copernicus-built-up-a",
   transportationL: "copernicus-transportation-l",
   notAnalysedA: "copernicus-not-analysed-a",
+  groundMovementA: "copernicus-ground-movement-a",
   aoi: "selected-aoi-extent",
 };
 
@@ -102,9 +174,9 @@ const BASE_LAYER_IDS = {
 const translations = {
   es: {
     eyebrow: "Panel satelital público",
-    title: "Mapa del terremoto en Venezuela 2026",
-    subtitle: "Visor no oficial de datos públicos Copernicus EMSR884.",
-    mobileTitle: "Mapa del terremoto en Venezuela 2026",
+    title: "Terremoto de Venezuela 2026: panel geoespacial de impacto (EMSR884)",
+    subtitle: "Interfaz no oficial para evaluaciones satelitales de Copernicus (gradación y movimiento del terreno).",
+    mobileTitle: "Terremoto de Venezuela 2026: panel geoespacial de impacto (EMSR884)",
 
     safetyTitle: "Aviso de seguridad pública",
     safetyText:
@@ -163,8 +235,10 @@ const translations = {
     footerPeriod: ".",
     loadingTitle: "Cargando datos satelitales",
     loadingText: "Obteniendo capas públicas de Copernicus EMSR884.",
+    largeLayerLoadingTitle: "Cargando una capa geoespacial grande",
+    largeLayerLoadingText: "Se está descargando una capa grande de Copernicus. La primera carga puede tardar en conexiones lentas; al volver a esta AOI en la misma sesión del navegador se reutilizarán los datos en caché cuando sea posible.",
     loadedTitle: "Datos satelitales cargados",
-    loadedText: "Capas públicas de Caracas cargadas correctamente.",
+    loadedText: "Capas públicas cargadas correctamente.",
     unavailableTitle: "Datos satelitales temporalmente no disponibles",
     unavailableText:
       "No se pudieron cargar las capas públicas de Copernicus. Puede ser un problema temporal, CORS o un cambio en el manifiesto de datos.",
@@ -173,9 +247,9 @@ const translations = {
 
   en: {
     eyebrow: "Public satellite dashboard",
-    title: "Venezuela earthquake map 2026",
-    subtitle: "Unofficial viewer for Copernicus EMSR884 public data.",
-    mobileTitle: "Venezuela earthquake map 2026",
+    title: "Venezuela 2026 Earthquake: Geospatial Impact Dashboard (EMSR884)",
+    subtitle: "Unofficial interface for Copernicus satellite assessments (grading and ground movement).",
+    mobileTitle: "Venezuela 2026 Earthquake: Geospatial Impact Dashboard (EMSR884)",
 
     safetyTitle: "Public safety notice",
     safetyText:
@@ -234,8 +308,10 @@ const translations = {
     footerPeriod: ".",
     loadingTitle: "Loading satellite data",
     loadingText: "Fetching Copernicus EMSR884 public layers.",
+    largeLayerLoadingTitle: "Loading large geospatial layer",
+    largeLayerLoadingText: "Downloading a large Copernicus layer. The first load may take some time on slower connections; revisiting this AOI in the same browser session will reuse cached data when possible.",
     loadedTitle: "Satellite data loaded",
-    loadedText: "Public Caracas layers loaded successfully.",
+    loadedText: "Public layers loaded successfully.",
     unavailableTitle: "Satellite data temporarily unavailable",
     unavailableText:
       "The public Copernicus layers could not be loaded. This may be temporary, caused by CORS, or caused by a change in the data manifest.",
@@ -244,9 +320,9 @@ const translations = {
 
   it: {
     eyebrow: "Dashboard satellitare pubblico",
-    title: "Mappa del terremoto in Venezuela 2026",
-    subtitle: "Visore non ufficiale dei dati pubblici Copernicus EMSR884.",
-    mobileTitle: "Mappa del terremoto in Venezuela 2026",
+    title: "Terremoto in Venezuela 2026: dashboard geospaziale dell’impatto (EMSR884)",
+    subtitle: "Interfaccia non ufficiale per le valutazioni satellitari Copernicus (classificazione e movimento del suolo).",
+    mobileTitle: "Terremoto in Venezuela 2026: dashboard geospaziale dell’impatto (EMSR884)",
 
     safetyTitle: "Avviso di sicurezza pubblica",
     safetyText:
@@ -305,8 +381,10 @@ const translations = {
     footerPeriod: ".",
     loadingTitle: "Caricamento dati satellitari",
     loadingText: "Recupero dei layer pubblici Copernicus EMSR884.",
+    largeLayerLoadingTitle: "Caricamento di un layer geospaziale grande",
+    largeLayerLoadingText: "Download di un layer Copernicus di grandi dimensioni. Il primo caricamento può richiedere tempo su connessioni lente; tornando a questa AOI nella stessa sessione del browser, i dati in cache verranno riutilizzati quando possibile.",
     loadedTitle: "Dati satellitari caricati",
-    loadedText: "Layer pubblici di Caracas caricati correttamente.",
+    loadedText: "Layer pubblici caricati correttamente.",
     unavailableTitle: "Dati satellitari temporaneamente non disponibili",
     unavailableText:
       "Non è stato possibile caricare i layer pubblici Copernicus. Potrebbe essere un problema temporaneo, CORS o una modifica del manifesto dati.",
@@ -315,9 +393,9 @@ const translations = {
 
   zh: {
     eyebrow: "公共卫星仪表板",
-    title: "2026 委内瑞拉地震地图",
-    subtitle: "Copernicus EMSR884 公共数据的非官方查看器。",
-    mobileTitle: "2026 委内瑞拉地震地图",
+    title: "2026 年委内瑞拉地震：地理空间影响仪表板（EMSR884）",
+    subtitle: "Copernicus 卫星评估（分级评估与地表位移）的非官方界面。",
+    mobileTitle: "2026 年委内瑞拉地震：地理空间影响仪表板（EMSR884）",
 
     safetyTitle: "公共安全提示",
     safetyText:
@@ -375,8 +453,10 @@ const translations = {
     footerPeriod: "。",
     loadingTitle: "正在加载卫星数据",
     loadingText: "正在获取 Copernicus EMSR884 公共图层。",
+    largeLayerLoadingTitle: "正在加载大型地理空间图层",
+    largeLayerLoadingText: "正在下载较大的 Copernicus 图层。首次加载在较慢网络下可能需要一些时间；在同一浏览器会话中再次打开该 AOI 时，将尽可能复用缓存数据。",
     loadedTitle: "卫星数据已加载",
-    loadedText: "Caracas 公共图层已成功加载。",
+    loadedText: "公共图层已成功加载。",
     unavailableTitle: "卫星数据暂时不可用",
     unavailableText:
       "无法加载 Copernicus 公共图层。可能是临时问题、CORS 限制或数据清单结构发生变化。",
@@ -400,6 +480,17 @@ const supplementalTranslations = {
     builtUpGrading: "Evaluación de edificaciones",
     transportationGrading: "Red vial y ferroviaria",
     generalInformation: "Información general",
+    groundMovementGrading: "Movimiento del terreno",
+    groundMovementM: "Movimiento del terreno (m)",
+    gmNegHigh: "-0.5 a -0.2",
+    gmNegMedium: "-0.2 a -0.1",
+    gmNegLow: "-0.1 a -0.05",
+    gmNearZeroNeg: "-0.05 a 0",
+    gmNearZeroPos: "0 a 0.05",
+    gmPosLow: "0.05 a 0.1",
+    gmPosMedium: "0.1 a 0.2",
+    gmPosHigh: "0.2 a 0.5",
+    gmAboveHigh: "Más de 0.5",
     highwayNoVisibleDamage: "Autopista, sin daño visible",
     mainRoadNoVisibleDamage: "Vía principal, sin daño visible",
     localRoadNoVisibleDamage: "Vía local, sin daño visible",
@@ -423,6 +514,17 @@ const supplementalTranslations = {
     builtUpGrading: "Built Up Grading",
     transportationGrading: "Road and rail network",
     generalInformation: "General Information",
+    groundMovementGrading: "Ground Movement",
+    groundMovementM: "Ground Movement (m)",
+    gmNegHigh: "-0.5 to -0.2",
+    gmNegMedium: "-0.2 to -0.1",
+    gmNegLow: "-0.1 to -0.05",
+    gmNearZeroNeg: "-0.05 to 0",
+    gmNearZeroPos: "0 to 0.05",
+    gmPosLow: "0.05 to 0.1",
+    gmPosMedium: "0.1 to 0.2",
+    gmPosHigh: "0.2 to 0.5",
+    gmAboveHigh: "Above 0.5",
     highwayNoVisibleDamage: "Highway, No visible damage",
     mainRoadNoVisibleDamage: "Main road, No visible damage",
     localRoadNoVisibleDamage: "Local road, No visible damage",
@@ -446,6 +548,17 @@ const supplementalTranslations = {
     builtUpGrading: "Valutazione edifici",
     transportationGrading: "Rete stradale e ferroviaria",
     generalInformation: "Informazioni generali",
+    groundMovementGrading: "Movimento del suolo",
+    groundMovementM: "Movimento del suolo (m)",
+    gmNegHigh: "-0.5 a -0.2",
+    gmNegMedium: "-0.2 a -0.1",
+    gmNegLow: "-0.1 a -0.05",
+    gmNearZeroNeg: "-0.05 a 0",
+    gmNearZeroPos: "0 a 0.05",
+    gmPosLow: "0.05 a 0.1",
+    gmPosMedium: "0.1 a 0.2",
+    gmPosHigh: "0.2 a 0.5",
+    gmAboveHigh: "Oltre 0.5",
     highwayNoVisibleDamage: "Autostrada, nessun danno visibile",
     mainRoadNoVisibleDamage: "Strada principale, nessun danno visibile",
     localRoadNoVisibleDamage: "Strada locale, nessun danno visibile",
@@ -469,6 +582,17 @@ const supplementalTranslations = {
     builtUpGrading: "建筑物评估",
     transportationGrading: "道路与铁路网络",
     generalInformation: "一般信息",
+    groundMovementGrading: "地表位移",
+    groundMovementM: "地表位移（米）",
+    gmNegHigh: "-0.5 至 -0.2",
+    gmNegMedium: "-0.2 至 -0.1",
+    gmNegLow: "-0.1 至 -0.05",
+    gmNearZeroNeg: "-0.05 至 0",
+    gmNearZeroPos: "0 至 0.05",
+    gmPosLow: "0.05 至 0.1",
+    gmPosMedium: "0.1 至 0.2",
+    gmPosHigh: "0.2 至 0.5",
+    gmAboveHigh: "大于 0.5",
     highwayNoVisibleDamage: "高速路，无可见损毁",
     mainRoadNoVisibleDamage: "主干道，无可见损毁",
     localRoadNoVisibleDamage: "本地道路，无可见损毁",
@@ -494,6 +618,15 @@ const layerVisibility = {
   destroyed: true,
   roads: true,
   notAnalysed: false,
+  groundNegHigh: true,
+  groundNegMedium: true,
+  groundNegLow: true,
+  groundNearZeroNeg: true,
+  groundNearZeroPos: true,
+  groundPosLow: true,
+  groundPosMedium: true,
+  groundPosHigh: true,
+  groundAboveHigh: true,
   aoi: true,  transportHighway: true,
   transportMain: true,
   transportLocal: true,
@@ -881,7 +1014,13 @@ async function loadAoi(aoiNumber = selectedAoiNumber) {
     renderAoiList(latestAois);
     fitAoiExtent(info.aoi);
     showAoiExtent(info.aoi);
-if (!urls.builtUpA && !urls.transportationL && !urls.notAnalysedA) {
+
+    if (
+      !urls.builtUpA &&
+      !urls.transportationL &&
+      !urls.notAnalysedA &&
+      !urls.groundMovementA
+    ) {
       setStatus(
         "error",
         t("aoiUnavailableTitle"),
@@ -891,21 +1030,26 @@ if (!urls.builtUpA && !urls.transportationL && !urls.notAnalysedA) {
       return;
     }
 
-    const jobs = [
-      urls.notAnalysedA
-        ? addCopernicusLayer("notAnalysedA", urls.notAnalysedA)
-        : Promise.resolve(false),
+    // Load in a stable visual order:
+    // coverage below, ground movement, built-up damage, transport on top.
+    const layerJobs = [
+      ["notAnalysedA", urls.notAnalysedA],
+      ["groundMovementA", urls.groundMovementA],
+      ["builtUpA", urls.builtUpA],
+      ["transportationL", urls.transportationL],
+    ].filter((item) => Boolean(item[1]));
 
-      urls.builtUpA
-        ? addCopernicusLayer("builtUpA", urls.builtUpA)
-        : Promise.resolve(false),
+    const results = [];
 
-      urls.transportationL
-        ? addCopernicusLayer("transportationL", urls.transportationL)
-        : Promise.resolve(false),
-    ];
-
-    const results = await Promise.allSettled(jobs);
+    for (const [kind, url] of layerJobs) {
+      try {
+        const value = await addCopernicusLayer(kind, url);
+        results.push({ status: "fulfilled", value, kind });
+      } catch (error) {
+        console.warn(`Layer ${kind} failed:`, error);
+        results.push({ status: "rejected", reason: error, kind });
+      }
+    }
 
     const loadedCount = results.filter(
       (result) => result.status === "fulfilled" && result.value === true
@@ -913,13 +1057,6 @@ if (!urls.builtUpA && !urls.transportationL && !urls.notAnalysedA) {
 
     if (loadedCount === 0) {
       console.warn("Copernicus layer load results:", results);
-
-      results.forEach((result, index) => {
-        if (result.status === "rejected") {
-          console.warn(`Layer promise ${index} rejected:`, result.reason);
-        }
-      });
-
       throw new Error("No usable Copernicus layer loaded.");
     }
 
@@ -951,7 +1088,7 @@ if (!urls.builtUpA && !urls.transportationL && !urls.notAnalysedA) {
     setStatus(
       "error",
       t("unavailableTitle"),
-      `${t("unavailableText")} ${error.message ? `(${error.message})` : ""}`,
+      `${t("unavailableText")}${error.message ? ` (${error.message})` : ""}`,
       true
     );
   } finally {
@@ -1005,6 +1142,8 @@ function cleanOverrideUrls(overrides) {
 }
 
 async function addCopernicusLayer(kind, url) {
+  maybeShowLargeLayerDownloadNotice(kind, url);
+
   const meta = await ensureCopernicusSource(kind, url);
 
   if (kind === "builtUpA") {
@@ -1013,6 +1152,8 @@ async function addCopernicusLayer(kind, url) {
     addTransportationStyleLayer(meta);
   } else if (kind === "notAnalysedA") {
     addNotAnalysedStyleLayers(meta);
+  } else if (kind === "groundMovementA") {
+    addGroundMovementStyleLayers(meta);
   } else {
     throw new Error(`Unknown Copernicus layer kind: ${kind}`);
   }
@@ -1030,7 +1171,10 @@ async function ensureCopernicusSource(kind, url) {
     return loadedSourceMeta[sourceId];
   }
 
-  const json = await fetchJsonDocument(url, `${kind} Copernicus JSON`);
+  const json = await fetchJsonDocument(url, `${kind} Copernicus JSON`, {
+    cacheDocument: true,
+    fetchCache: "force-cache",
+  });
 
   console.info(`Fetched ${kind} JSON summary:`, summarizeJson(json, url));
 
@@ -1251,11 +1395,16 @@ function renderDataStatusPanel() {
 
   const aoiText = meta.aoiName
     ? `${meta.aoiName} AOI${String(meta.aoiNumber ?? "").padStart(2, "0")}`
-    : "Caracas AOI02";
+    : "AOI";
 
   const productParts = [aoiText];
 
-  if (meta.productType) productParts.push(meta.productType);
+  if (meta.productSummary) {
+    productParts.push(meta.productSummary);
+  } else {
+    if (meta.productType) productParts.push(meta.productType);
+  }
+
   if (meta.productId) productParts.push(`#${meta.productId}`);
   if (meta.productStatus) productParts.push(`status ${meta.productStatus}`);
 
@@ -1392,27 +1541,58 @@ async function getCopernicusLayerInfo(aoiNumber = selectedAoiNumber) {
   const aoi = findAoiByNumber(manifest, aoiNumber);
 
   if (!aoi) {
-    throw new Error(`AOI${String(aoiNumber).padStart(2, "0")} not found in EMSR884 manifest.`);
+    throw new Error(
+      `AOI${String(aoiNumber).padStart(2, "0")} not found in EMSR884 manifest.`
+    );
   }
 
-  const product = chooseAoiProduct(aoi);
-  const structuredUrls = product ? extractLayerUrlsFromProduct(product) : {};
+  const layerSelection = collectBestLayerUrlsFromAoi(aoi);
+  const structuredUrls = layerSelection.urls || {};
 
   const urls = {
     ...structuredUrls,
     ...overrides,
   };
 
+  const productsForStatus = getUniqueProducts(
+    Object.values(layerSelection.productsByLayer || {})
+  );
+
+  const product =
+    choosePrimaryStatusProduct(productsForStatus) ||
+    chooseAoiProduct(aoi);
+
+  const statusProducts = productsForStatus.length
+    ? productsForStatus
+    : product
+      ? [product]
+      : [];
+
+  const singleStatusProduct =
+    statusProducts.length === 1 ? statusProducts[0] : null;
+
   updateDataStatusPanel({
     activationCode: "EMSR884",
     aoiName: aoi.name || `AOI${String(aoi.number).padStart(2, "0")}`,
     aoiNumber: aoi.number,
-    productId: product?.id || "",
-    productType: product?.type || "",
-    productStatus: product?.version?.statusCode || "",
-    deliveryTime: product?.version?.deliveryTime || "",
-    expectedDelivery: product?.expectedDelivery || "",
-    acquisitionTime: product ? getLatestAcquisitionTime(product) : "",
+
+    productId: singleStatusProduct?.id || "",
+    productType: singleStatusProduct?.type || "",
+    productStatus: singleStatusProduct?.version?.statusCode || "",
+    productSummary: formatProductListLabel(statusProducts),
+
+    deliveryTime:
+      getLatestProductDeliveryTime(statusProducts) ||
+      product?.version?.deliveryTime ||
+      "",
+    expectedDelivery:
+      getLatestProductExpectedDelivery(statusProducts) ||
+      product?.expectedDelivery ||
+      "",
+    acquisitionTime:
+      getLatestAcquisitionTimeFromProducts(statusProducts) ||
+      (product ? getLatestAcquisitionTime(product) : ""),
+
     lastChecked: manifestInfo.checkedAt,
     fromCache: manifestInfo.fromCache,
     cacheStale: manifestInfo.stale,
@@ -1422,12 +1602,16 @@ async function getCopernicusLayerInfo(aoiNumber = selectedAoiNumber) {
     downloadPath: product?.downloadPath || "",
   });
 
-  console.info("Selected Copernicus AOI/product:", {
+  console.info("Selected Copernicus AOI/layers:", {
     aoiName: aoi.name,
     aoiNumber: aoi.number,
-    productId: product?.id,
-    productType: product?.type,
-    productStatus: product?.version?.statusCode,
+    products: statusProducts.map((item) => ({
+      id: item.id,
+      type: item.type,
+      monitoring: item.monitoring,
+      monitoringNumber: item.monitoringNumber,
+      status: item.version?.statusCode,
+    })),
     urls,
   });
 
@@ -1436,6 +1620,8 @@ async function getCopernicusLayerInfo(aoiNumber = selectedAoiNumber) {
     manifestInfo,
     aoi,
     product,
+    products: statusProducts,
+    productsByLayer: layerSelection.productsByLayer,
     urls,
   };
 }
@@ -1458,35 +1644,233 @@ function findAoiByNumber(manifest, aoiNumber) {
   return getAllAois(manifest).find((aoi) => Number(aoi.number) === wanted) || null;
 }
 
-function productHasUsefulLayers(product) {
-  return (
-    Array.isArray(product?.layers) &&
-    product.layers.some((layer) => {
-      const jsonUrl = String(layer.json || "").trim();
-      const name = String(layer.name || "");
+function productLayerKeys(product) {
+  return new Set(Object.keys(extractLayerUrlsFromProduct(product || {})));
+}
 
-      return jsonUrl.startsWith("http") && Boolean(classifyLayer(`${name} ${jsonUrl}`));
-    })
+function productHasLayerKey(product, key) {
+  return Boolean(extractLayerUrlsFromProduct(product || {})[key]);
+}
+
+function productHasUsefulLayers(product) {
+  return productLayerKeys(product).size > 0;
+}
+
+function productStatusScore(product) {
+  const status = product?.version?.statusCode || "";
+
+  if (status === "F") return 1000;
+  if (status === "I") return 160;
+  if (status === "W") return 80;
+  if (status === "N") return -500;
+
+  return 0;
+}
+
+function getProductTimeMillis(product) {
+  const imageTimes = (product?.images || [])
+    .map((image) => new Date(image.acquisitionTime || "").getTime())
+    .filter((value) => Number.isFinite(value));
+
+  const times = [
+    product?.version?.deliveryTime,
+    product?.expectedDelivery,
+    ...imageTimes.map((value) => new Date(value).toISOString()),
+  ]
+    .map((value) => new Date(value || "").getTime())
+    .filter((value) => Number.isFinite(value));
+
+  if (!times.length) {
+    return NaN;
+  }
+
+  return Math.max(...times);
+}
+
+function productTimeScore(product) {
+  const millis = getProductTimeMillis(product);
+
+  if (!Number.isFinite(millis)) {
+    return 0;
+  }
+
+  // Small freshness bonus. Status and product type still dominate.
+  return Math.min(250, Math.max(0, millis / 1e10 - 150));
+}
+
+function scoreProductForLayerKey(product, key) {
+  if (!productHasLayerKey(product, key)) {
+    return -Infinity;
+  }
+
+  let score = productStatusScore(product);
+
+  if (key === "groundMovementA") {
+    score += product.type === "GRM" ? 520 : 0;
+  } else if (key === "builtUpA" || key === "transportationL") {
+    score += product.type === "GRA" ? 520 : 0;
+  } else if (key === "notAnalysedA") {
+    score += product.type === "GRA" ? 260 : product.type === "GRM" ? 230 : 0;
+  }
+
+  if (product.monitoring) {
+    score += 60 + (Number(product.monitoringNumber || 0) || 0) * 15;
+  }
+
+  score += productTimeScore(product);
+  return score;
+}
+
+function scoreProductForCard(product) {
+  let score = productHasUsefulLayers(product) ? 10000 : 0;
+
+  score += productStatusScore(product);
+
+  if (product.type === "GRA") score += 90;
+  if (product.type === "GRM") score += 80;
+
+  if (product.monitoring) {
+    score += 50 + (Number(product.monitoringNumber || 0) || 0) * 15;
+  }
+
+  score += productTimeScore(product);
+  return score;
+}
+
+function chooseBestProductForLayerKey(aoi, key) {
+  const products = Array.isArray(aoi?.products) ? aoi.products : [];
+
+  const candidates = products.filter((product) => productHasLayerKey(product, key));
+
+  if (!candidates.length) {
+    return null;
+  }
+
+  return candidates.sort(
+    (a, b) => scoreProductForLayerKey(b, key) - scoreProductForLayerKey(a, key)
+  )[0];
+}
+
+function collectBestLayerUrlsFromAoi(aoi) {
+  const urls = {};
+  const productsByLayer = {};
+  const wantedKeys = [
+    "builtUpA",
+    "transportationL",
+    "notAnalysedA",
+    "groundMovementA",
+  ];
+
+  wantedKeys.forEach((key) => {
+    const product = chooseBestProductForLayerKey(aoi, key);
+    const layerUrls = product ? extractLayerUrlsFromProduct(product) : {};
+
+    if (layerUrls[key]) {
+      urls[key] = layerUrls[key];
+      productsByLayer[key] = product;
+    }
+  });
+
+  return {
+    urls,
+    productsByLayer,
+  };
+}
+
+function getUniqueProducts(products) {
+  const output = [];
+  const seen = new Set();
+
+  (products || []).forEach((product) => {
+    if (!product) return;
+
+    const key =
+      product.id ||
+      `${product.type || ""}-${product.aoiNumber || ""}-${product.monitoringNumber || ""}-${product.expectedDelivery || ""}`;
+
+    if (seen.has(key)) return;
+
+    seen.add(key);
+    output.push(product);
+  });
+
+  return output;
+}
+
+function choosePrimaryStatusProduct(products) {
+  const unique = getUniqueProducts(products);
+
+  if (!unique.length) {
+    return null;
+  }
+
+  return unique.sort((a, b) => scoreProductForCard(b) - scoreProductForCard(a))[0];
+}
+
+function latestIsoFromValues(values) {
+  const times = (values || [])
+    .filter(Boolean)
+    .map((value) => new Date(value).getTime())
+    .filter((value) => Number.isFinite(value));
+
+  if (!times.length) {
+    return "";
+  }
+
+  return new Date(Math.max(...times)).toISOString();
+}
+
+function getLatestProductDeliveryTime(products) {
+  return latestIsoFromValues(
+    getUniqueProducts(products).map((product) => product?.version?.deliveryTime)
   );
+}
+
+function getLatestProductExpectedDelivery(products) {
+  return latestIsoFromValues(
+    getUniqueProducts(products).map((product) => product?.expectedDelivery)
+  );
+}
+
+function getLatestAcquisitionTimeFromProducts(products) {
+  const times = [];
+
+  getUniqueProducts(products).forEach((product) => {
+    const value = getLatestAcquisitionTime(product || {});
+
+    if (value) {
+      times.push(value);
+    }
+  });
+
+  return latestIsoFromValues(times);
+}
+
+function formatProductListLabel(products) {
+  const unique = getUniqueProducts(products);
+
+  if (!unique.length) {
+    return "";
+  }
+
+  return unique.map(getProductLabel).join(" + ");
 }
 
 function chooseAoiProduct(aoi) {
   const products = Array.isArray(aoi?.products) ? aoi.products : [];
 
+  const useful = products
+    .filter(productHasUsefulLayers)
+    .sort((a, b) => scoreProductForCard(b) - scoreProductForCard(a));
+
+  if (useful.length) {
+    return useful[0];
+  }
+
   return (
-    products.find(
-      (product) =>
-        product.type === "GRA" &&
-        product.version?.statusCode === "F" &&
-        productHasUsefulLayers(product)
-    ) ||
-    products.find((product) => product.type === "GRA" && productHasUsefulLayers(product)) ||
-    products.find((product) => product.version?.statusCode === "F" && productHasUsefulLayers(product)) ||
-    products.find(productHasUsefulLayers) ||
-    products.find((product) => product.type === "GRA" && product.version?.statusCode === "I") ||
-    products.find((product) => product.type === "GRA" && product.version?.statusCode === "W") ||
-    products.find((product) => product.type === "GRA") ||
-    products[0] ||
+    products
+      .slice()
+      .sort((a, b) => scoreProductForCard(b) - scoreProductForCard(a))[0] ||
     null
   );
 }
@@ -1711,28 +2095,103 @@ function escapeHtml(value) {
 /* AOI dynamic helpers: end */
 
 
-async function fetchJsonDocument(url, label) {
-  const response = await fetch(url, {
-    method: "GET",
-    mode: "cors",
-    cache: "no-store",
-    headers: {
-      Accept: "application/json, application/geo+json, application/tilejson, */*",
-    },
-  });
 
-  if (!response.ok) {
-    throw new Error(`${label} HTTP ${response.status}: ${url}`);
+function isJsonDocumentMemoryCached(url) {
+  return JSON_DOCUMENT_MEMORY_CACHE.has(String(url || "").trim());
+}
+
+function isPotentiallyLargeCopernicusLayer(kind, url) {
+  const text = `${kind || ""} ${url || ""}`.toLowerCase();
+
+  return (
+    kind === "groundMovementA" ||
+    text.includes("groundmovement") ||
+    text.includes("ground_movement") ||
+    text.includes("ground-movement") ||
+    text.includes("grm_product")
+  );
+}
+
+function maybeShowLargeLayerDownloadNotice(kind, url) {
+  if (!isPotentiallyLargeCopernicusLayer(kind, url)) {
+    return;
   }
 
-  const text = await response.text();
-
-  try {
-    return JSON.parse(text);
-  } catch (error) {
-    console.error(`${label} was not valid JSON. First 300 chars:`, text.slice(0, 300));
-    throw new Error(`${label} is not valid JSON: ${url}`);
+  if (isJsonDocumentMemoryCached(url)) {
+    return;
   }
+
+  if (!els.status || !els.statusTitle || !els.statusMessage) {
+    return;
+  }
+
+  setStatus(
+    "loading",
+    t("largeLayerLoadingTitle"),
+    t("largeLayerLoadingText"),
+    false
+  );
+}
+
+async function fetchJsonDocument(url, label, options = {}) {
+  const requestUrl = String(url || "").trim();
+
+  if (!requestUrl) {
+    throw new Error(`${label} URL is empty.`);
+  }
+
+  const cacheDocument = Boolean(options.cacheDocument);
+  const cacheKey = requestUrl;
+
+  if (cacheDocument && JSON_DOCUMENT_MEMORY_CACHE.has(cacheKey)) {
+    console.info(`${label}: using in-memory cached JSON document.`);
+    return JSON_DOCUMENT_MEMORY_CACHE.get(cacheKey);
+  }
+
+  const task = (async () => {
+    const response = await fetch(requestUrl, {
+      method: "GET",
+      mode: "cors",
+
+      // Important:
+      // - Manifest fetches should stay fresh and are controlled by our 30-minute manifest cache.
+      // - Layer JSON files are versioned URLs, so they can safely use browser cache.
+      cache: options.fetchCache || (cacheDocument ? "force-cache" : "no-store"),
+
+      headers: {
+        Accept: "application/json, application/geo+json, application/tilejson, */*",
+      },
+    });
+
+    if (!response.ok) {
+      throw new Error(`${label} HTTP ${response.status}: ${requestUrl}`);
+    }
+
+    const text = await response.text();
+
+    try {
+      return JSON.parse(text);
+    } catch (error) {
+      console.error(`${label} was not valid JSON. First 300 chars:`, text.slice(0, 300));
+      throw new Error(`${label} is not valid JSON: ${requestUrl}`);
+    }
+  })();
+
+  if (cacheDocument) {
+    JSON_DOCUMENT_MEMORY_CACHE.set(cacheKey, task);
+
+    try {
+      return await task;
+    } catch (error) {
+      if (JSON_DOCUMENT_MEMORY_CACHE.get(cacheKey) === task) {
+        JSON_DOCUMENT_MEMORY_CACHE.delete(cacheKey);
+      }
+
+      throw error;
+    }
+  }
+
+  return task;
 }
 
 function isGeoJson(json) {
@@ -2275,6 +2734,124 @@ function wktPolygonToGeoJson(wkt, properties = {}) {
 /* Transportation and AOI style helpers: end */
 
 
+
+function groundMovementValueExpression() {
+  return [
+    "downcase",
+    [
+      "to-string",
+      [
+        "coalesce",
+        ["get", "value"],
+        ["get", "Value"],
+        ["get", "VALUE"],
+        ["get", "class"],
+        ["get", "Class"],
+        ["get", "category"],
+        ["get", "Category"],
+        "",
+      ],
+    ],
+  ];
+}
+
+function groundMovementClassFilter(item) {
+  return ["==", groundMovementValueExpression(), String(item.value).toLowerCase()];
+}
+
+function addGroundMovementStyleLayers(meta) {
+  GROUND_MOVEMENT_CLASSES.forEach((item) => {
+    addOrReplaceDataLayer(
+      withOptionalSourceLayer(
+        {
+          id: `ground-movement-${item.id}-fill`,
+          type: "fill",
+          source: SOURCE_IDS.groundMovementA,
+          filter: groundMovementClassFilter(item),
+          paint: {
+            "fill-color": item.color,
+            "fill-opacity": 0.72,
+          },
+        },
+        meta
+      )
+    );
+
+    addOrReplaceDataLayer(
+      withOptionalSourceLayer(
+        {
+          id: `ground-movement-${item.id}-outline`,
+          type: "line",
+          source: SOURCE_IDS.groundMovementA,
+          filter: groundMovementClassFilter(item),
+          paint: {
+            "line-color": item.color,
+            "line-opacity": 0.42,
+            "line-width": [
+              "interpolate",
+              ["linear"],
+              ["zoom"],
+              8,
+              0.15,
+              12,
+              0.35,
+              16,
+              0.8,
+            ],
+          },
+        },
+        meta
+      )
+    );
+  });
+}
+
+function hasAnyMapLayer(layerIds) {
+  return Boolean(mapReady && map && layerIds.some((layerId) => map.getLayer(layerId)));
+}
+
+function setLegendElementsVisible(selector, visible) {
+  document.querySelectorAll(selector).forEach((node) => {
+    node.classList.toggle("hidden", !visible);
+  });
+}
+
+function updateLegendAvailability() {
+  const hasBuiltUp = hasAnyMapLayer(["built-up-fill", "built-up-outline"]);
+  const hasTransportation = hasAnyMapLayer(TRANSPORTATION_LAYER_IDS);
+  const hasGroundMovement = hasAnyMapLayer(GROUND_MOVEMENT_LAYER_IDS);
+  const hasNotAnalysed = hasAnyMapLayer([
+    "not-analysed-fill",
+    "not-analysed-hatch-fill",
+    "not-analysed-outline",
+  ]);
+  const hasAoi = hasAnyMapLayer(AOI_LAYER_IDS);
+
+  setLegendElementsVisible('[data-legend-row="builtUp"]', hasBuiltUp);
+  setLegendElementsVisible('[data-legend-row="transportation"]', hasTransportation);
+  setLegendElementsVisible('[data-legend-row="groundMovement"]', hasGroundMovement);
+  setLegendElementsVisible('[data-legend-row="notAnalysed"]', hasNotAnalysed);
+  setLegendElementsVisible('[data-legend-row="aoi"]', hasAoi);
+
+  // Keep the original built-up/coverage section visible if not-analysed exists.
+  setLegendElementsVisible(
+    '[data-legend-section="builtUp"]',
+    hasBuiltUp || hasNotAnalysed
+  );
+  setLegendElementsVisible(
+    '[data-legend-section="transportation"]',
+    hasTransportation
+  );
+  setLegendElementsVisible(
+    '[data-legend-section="groundMovement"]',
+    hasGroundMovement
+  );
+  setLegendElementsVisible(
+    '[data-legend-section="general"]',
+    hasAoi
+  );
+}
+
 function addBuiltUpStyleLayers(meta) {
   const color = damageColorExpression();
 
@@ -2617,7 +3194,13 @@ function looksLikeRelevantUrl(url) {
     text.includes("transportation-l") ||
     text.includes("notanalyseda") ||
     text.includes("not_analysed_a") ||
-    text.includes("not-analysed-a")
+    text.includes("not-analysed-a") ||
+    text.includes("groundmovementa") ||
+    text.includes("ground_movement_a") ||
+    text.includes("ground-movement-a") ||
+    text.includes("groundmovement") ||
+    text.includes("ground_movement") ||
+    text.includes("ground-movement")
   );
 }
 
@@ -2645,6 +3228,7 @@ function pickLayerUrls(records) {
     builtUpA: findBestLayerUrl(candidates, records, "builtUpA"),
     transportationL: findBestLayerUrl(candidates, records, "transportationL"),
     notAnalysedA: findBestLayerUrl(candidates, records, "notAnalysedA"),
+    groundMovementA: findBestLayerUrl(candidates, records, "groundMovementA"),
   };
 }
 
@@ -2686,8 +3270,17 @@ function scoreRecord(record, layerName) {
   return score;
 }
 
-function isCaracasRecord(text) {
-  const lower = text.toLowerCase();
+function isCaracasRecord(text, ...values) {
+  const rawText =
+    Array.isArray(text) && Object.prototype.hasOwnProperty.call(text, "raw")
+      ? text.reduce(
+          (acc, part, index) =>
+            `${acc}${part}${index < values.length ? values[index] : ""}`,
+          ""
+        )
+      : String(text || "");
+
+  const lower = rawText.toLowerCase();
 
   return (
     lower.includes("caracas") ||
@@ -2699,8 +3292,17 @@ function isCaracasRecord(text) {
   );
 }
 
-function classifyLayer(text) {
-  const lower = text.toLowerCase();
+function classifyLayer(text, ...values) {
+  const rawText =
+    Array.isArray(text) && Object.prototype.hasOwnProperty.call(text, "raw")
+      ? text.reduce(
+          (acc, part, index) =>
+            `${acc}${part}${index < values.length ? values[index] : ""}`,
+          ""
+        )
+      : String(text || "");
+
+  const lower = rawText.toLowerCase();
 
   if (
     lower.includes("builtupa") ||
@@ -2730,6 +3332,19 @@ function classifyLayer(text) {
     lower.includes("not-analyzed-a")
   ) {
     return "notAnalysedA";
+  }
+
+  if (
+    lower.includes("groundmovementa") ||
+    lower.includes("ground_movement_a") ||
+    lower.includes("ground-movement-a") ||
+    lower.includes("ground movement a") ||
+    lower.includes("groundmovement") ||
+    lower.includes("ground_movement") ||
+    lower.includes("ground-movement") ||
+    lower.includes("ground movement")
+  ) {
+    return "groundMovementA";
   }
 
   return "";
@@ -2830,7 +3445,7 @@ function applyLayerVisibility() {
   if (notAnalysedInput) {
     const row = notAnalysedInput.closest(".legend-toggle");
 
-    // Default is OFF, but user can enable it on satellite or street mode.
+    // User can enable/disable this on either basemap.
     notAnalysedInput.disabled = false;
     notAnalysedInput.checked = Boolean(layerVisibility.notAnalysed);
 
@@ -2840,6 +3455,8 @@ function applyLayerVisibility() {
       row.title = "";
     }
   }
+
+  updateLegendAvailability();
 
   if (!mapReady || !map) {
     return;
@@ -2879,6 +3496,12 @@ function applyLayerVisibility() {
   setLayerVisibility("transportation-railway-line", showRailway);
   setLayerVisibility("transportation-railway-ticks", showRailway);
 
+  GROUND_MOVEMENT_CLASSES.forEach((item) => {
+    const visible = layerVisibility[item.key] !== false;
+    setLayerVisibility(`ground-movement-${item.id}-fill`, visible);
+    setLayerVisibility(`ground-movement-${item.id}-outline`, visible);
+  });
+
   const showNotAnalysed = Boolean(layerVisibility.notAnalysed);
 
   setLayerVisibility("not-analysed-fill", showNotAnalysed);
@@ -2890,6 +3513,8 @@ function applyLayerVisibility() {
   AOI_LAYER_IDS.forEach((layerId) => {
     setLayerVisibility(layerId, showAoi);
   });
+
+  updateLegendAvailability();
 }
 
 

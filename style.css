@@ -901,3 +901,66 @@ button.aoi-card:hover {
   box-shadow: 0 0 0 1px rgba(255, 255, 255, 0.45);
 }
 /* Selectable transport legend styles: end */
+
+
+/* Ground movement legend styles: start */
+.legend-section.hidden,
+.map-legend-row.hidden {
+  display: none !important;
+}
+
+.legend-subtitle {
+  padding-left: 27px;
+  color: var(--muted);
+  font-size: 0.78rem;
+  font-weight: 900;
+  letter-spacing: 0.03em;
+  text-transform: uppercase;
+}
+
+.ground-swatch {
+  width: 28px;
+  height: 17px;
+  flex: 0 0 28px;
+  border-radius: 4px;
+  border: 1px solid rgba(255, 255, 255, 0.28);
+  box-shadow: 0 0 0 1px rgba(0, 0, 0, 0.18) inset;
+}
+
+.ground-swatch.gm-neg-high {
+  background: #4965ad;
+}
+
+.ground-swatch.gm-neg-medium {
+  background: #76a3c7;
+}
+
+.ground-swatch.gm-neg-low {
+  background: #b4d8e7;
+}
+
+.ground-swatch.gm-near-zero-neg {
+  background: #e4f3f8;
+}
+
+.ground-swatch.gm-near-zero-pos {
+  background: #fee6a6;
+}
+
+.ground-swatch.gm-pos-low {
+  background: #f6ad68;
+}
+
+.ground-swatch.gm-pos-medium {
+  background: #e56845;
+}
+
+.ground-swatch.gm-pos-high {
+  background: #be2f2f;
+}
+
+.ground-swatch.gm-above-high {
+  background: #9e182c;
+}
+/* Ground movement legend styles: end */
+
