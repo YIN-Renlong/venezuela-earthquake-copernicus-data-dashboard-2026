@@ -21,10 +21,10 @@
   <link rel="preconnect" href="https://rapidmapping.emergency.copernicus.eu" />
 
   <link href="https://unpkg.com/maplibre-gl@4.7.1/dist/maplibre-gl.css" rel="stylesheet" />
-  <link rel="stylesheet" href="style.css?v=aoi-moron-1782463636" />
+  <link rel="stylesheet" href="style.css?v=exact-transport-1782465430" />
 
   <script src="https://unpkg.com/maplibre-gl@4.7.1/dist/maplibre-gl.js" defer></script>
-  <script src="app.js?v=aoi-moron-1782463636" defer></script>
+  <script src="app.js?v=exact-transport-1782465430" defer></script>
 </head>
 
 <body>
@@ -190,40 +190,7 @@
         </p>
       </section>
 
-      <section class="panel">
-        <h2 data-i18n="legendTitle">Leyenda</h2>
-
-        <label class="legend-row legend-toggle">
-          <input class="layer-checkbox" type="checkbox" data-layer-toggle="possible" checked />
-          <span class="swatch possible"></span>
-          <span data-i18n="possiblyDamaged">Posible daño</span>
-        </label>
-
-        <label class="legend-row legend-toggle">
-          <input class="layer-checkbox" type="checkbox" data-layer-toggle="damaged" checked />
-          <span class="swatch damaged"></span>
-          <span data-i18n="confirmedDamaged">Daño / daño confirmado</span>
-        </label>
-
-        <label class="legend-row legend-toggle">
-          <input class="layer-checkbox" type="checkbox" data-layer-toggle="destroyed" checked />
-          <span class="swatch destroyed"></span>
-          <span data-i18n="destroyed">Destruido</span>
-        </label>
-
-        <label class="legend-row legend-toggle">
-          <input class="layer-checkbox" type="checkbox" data-layer-toggle="roads" checked />
-          <span class="swatch road"></span>
-          <span data-i18n="roads">Carreteras / transporte</span>
-        </label>
-
-        <label class="legend-row legend-toggle">
-          <input class="layer-checkbox" type="checkbox" data-layer-toggle="notAnalysed" />
-          <span class="swatch hatch"></span>
-          <span data-i18n="notAnalysed">No analizado / nubes</span>
-        </label>
-
-      </section>
+      
 
       <section class="notice">
         <strong data-i18n="dataTitle">Aclaración de datos</strong>
@@ -271,6 +238,100 @@
       </div>
 
       <div id="map" aria-label="Map of Caracas earthquake satellite damage layers"></div>
+
+      <!-- Map legend overlay: start -->
+      <div id="map-legend" class="map-legend" aria-label="Map legend">
+        <div class="map-legend-header">
+          <strong data-i18n="legendTitle">Leyenda</strong>
+          <button
+            id="legend-collapse-btn"
+            class="legend-collapse-btn"
+            type="button"
+            aria-label="Collapse legend"
+          >−</button>
+        </div>
+
+        <div class="map-legend-body">
+          <div class="legend-section">
+            <div class="legend-section-title" data-i18n="builtUpGrading">
+              Built Up Grading
+            </div>
+
+            <label class="map-legend-row legend-toggle">
+              <input class="layer-checkbox" type="checkbox" data-layer-toggle="destroyed" checked />
+              <span class="swatch destroyed"></span>
+              <span data-i18n="destroyed">Destruido</span>
+            </label>
+
+            <label class="map-legend-row legend-toggle">
+              <input class="layer-checkbox" type="checkbox" data-layer-toggle="damaged" checked />
+              <span class="swatch damaged"></span>
+              <span data-i18n="confirmedDamaged">Daño / daño confirmado</span>
+            </label>
+
+            <label class="map-legend-row legend-toggle">
+              <input class="layer-checkbox" type="checkbox" data-layer-toggle="possible" checked />
+              <span class="swatch possible"></span>
+              <span data-i18n="possiblyDamaged">Posible daño</span>
+            </label>
+
+            <label class="map-legend-row legend-toggle">
+              <input class="layer-checkbox" type="checkbox" data-layer-toggle="notAnalysed" />
+              <span class="swatch hatch"></span>
+              <span data-i18n="notAnalysed">No analizado / nubes</span>
+            </label>
+          </div>
+
+                    <div class="legend-section">
+            <div class="legend-section-title" data-i18n="transportationGrading">
+              Red vial y ferroviaria
+            </div>
+
+            <label class="map-legend-row legend-toggle transport-toggle">
+              <input class="layer-checkbox" type="checkbox" data-layer-toggle="transportHighway" checked />
+              <span class="line-swatch highway"></span>
+              <span data-i18n="highwayNoVisibleDamage">Autopista, sin daño visible</span>
+            </label>
+
+            <label class="map-legend-row legend-toggle transport-toggle">
+              <input class="layer-checkbox" type="checkbox" data-layer-toggle="transportMain" checked />
+              <span class="line-swatch main-road"></span>
+              <span data-i18n="mainRoadNoVisibleDamage">Vía principal, sin daño visible</span>
+            </label>
+
+            <label class="map-legend-row legend-toggle transport-toggle">
+              <input class="layer-checkbox" type="checkbox" data-layer-toggle="transportLocal" checked />
+              <span class="line-swatch local-road"></span>
+              <span data-i18n="localRoadNoVisibleDamage">Vía local, sin daño visible</span>
+            </label>
+
+            <label class="map-legend-row legend-toggle transport-toggle">
+              <input class="layer-checkbox" type="checkbox" data-layer-toggle="transportTrack" checked />
+              <span class="line-swatch track"></span>
+              <span data-i18n="trackNoVisibleDamage">Camino / pista, sin daño visible</span>
+            </label>
+
+            <label class="map-legend-row legend-toggle transport-toggle">
+              <input class="layer-checkbox" type="checkbox" data-layer-toggle="transportRailway" checked />
+              <span class="line-swatch railway"></span>
+              <span data-i18n="railwayNoVisibleDamage">Ferrocarril / metro, sin daño visible</span>
+            </label>
+          </div>
+
+<div class="legend-section">
+            <div class="legend-section-title" data-i18n="generalInformation">
+              General Information
+            </div>
+
+            <label class="map-legend-row legend-toggle">
+              <input class="layer-checkbox" type="checkbox" data-layer-toggle="aoi" checked />
+              <span class="aoi-swatch"></span>
+              <span data-i18n="areaOfInterest">Area of Interest</span>
+            </label>
+          </div>
+        </div>
+      </div>
+      <!-- Map legend overlay: end -->
 
       <div id="map-status" class="map-status" role="status" aria-live="polite">
         <div class="spinner" aria-hidden="true"></div>

@@ -44,13 +44,35 @@ const DEFAULT_AOI_NUMBER = 2;
 let selectedAoiNumber = getInitialAoiNumber();
 let latestAois = [];
 
+const TRANSPORTATION_LAYER_IDS = [
+  "transportation-local-road-line",
+  "transportation-track-line",
+  "transportation-main-road-line",
+  "transportation-highway-line",
+  "transportation-railway-line",
+  "transportation-railway-ticks",
+];
+
+const AOI_LAYER_IDS = [
+  "aoi-fill",
+  "aoi-outline",
+];
+
 const DATA_LAYER_IDS = [
   "built-up-fill",
   "built-up-outline",
+
+  // Legacy layer ids from older versions.
   "transportation-lines",
+  "transportation-other-line",
+
+  ...TRANSPORTATION_LAYER_IDS,
+
   "not-analysed-fill",
   "not-analysed-hatch-fill",
   "not-analysed-outline",
+
+  ...AOI_LAYER_IDS,
 ];
 /* AOI selector globals: end */
 
@@ -68,6 +90,7 @@ const SOURCE_IDS = {
   builtUpA: "copernicus-built-up-a",
   transportationL: "copernicus-transportation-l",
   notAnalysedA: "copernicus-not-analysed-a",
+  aoi: "selected-aoi-extent",
 };
 
 const BASE_LAYER_IDS = {
@@ -373,6 +396,18 @@ const supplementalTranslations = {
     aoiUnavailableTitle: "AOI aún sin capas públicas",
     aoiUnavailableText:
       "Copernicus ya listó esta AOI, pero las capas vectoriales públicas aún no están publicadas. El marcador se activará cuando Copernicus publique los datos.",
+
+    builtUpGrading: "Evaluación de edificaciones",
+    transportationGrading: "Red vial y ferroviaria",
+    generalInformation: "Información general",
+    highwayNoVisibleDamage: "Autopista, sin daño visible",
+    mainRoadNoVisibleDamage: "Vía principal, sin daño visible",
+    localRoadNoVisibleDamage: "Vía local, sin daño visible",
+    trackNoVisibleDamage: "Camino / pista, sin daño visible",
+    railwayNoVisibleDamage: "Ferrocarril / metro, sin daño visible",
+    areaOfInterest: "Área de interés",
+    collapseLegend: "Contraer leyenda",
+    expandLegend: "Expandir leyenda",
   },
 
   en: {
@@ -384,6 +419,18 @@ const supplementalTranslations = {
     aoiUnavailableTitle: "AOI public layers not available yet",
     aoiUnavailableText:
       "Copernicus has listed this AOI, but public vector layers are not published yet. This placeholder will become active when Copernicus publishes the data.",
+
+    builtUpGrading: "Built Up Grading",
+    transportationGrading: "Road and rail network",
+    generalInformation: "General Information",
+    highwayNoVisibleDamage: "Highway, No visible damage",
+    mainRoadNoVisibleDamage: "Main road, No visible damage",
+    localRoadNoVisibleDamage: "Local road, No visible damage",
+    trackNoVisibleDamage: "Track, No visible damage",
+    railwayNoVisibleDamage: "Railway / subway, No visible damage",
+    areaOfInterest: "Area of Interest",
+    collapseLegend: "Collapse legend",
+    expandLegend: "Expand legend",
   },
 
   it: {
@@ -395,6 +442,18 @@ const supplementalTranslations = {
     aoiUnavailableTitle: "Layer pubblici AOI non ancora disponibili",
     aoiUnavailableText:
       "Copernicus ha elencato questa AOI, ma i layer vettoriali pubblici non sono ancora pubblicati. Il segnaposto si attiverà quando Copernicus pubblicherà i dati.",
+
+    builtUpGrading: "Valutazione edifici",
+    transportationGrading: "Rete stradale e ferroviaria",
+    generalInformation: "Informazioni generali",
+    highwayNoVisibleDamage: "Autostrada, nessun danno visibile",
+    mainRoadNoVisibleDamage: "Strada principale, nessun danno visibile",
+    localRoadNoVisibleDamage: "Strada locale, nessun danno visibile",
+    trackNoVisibleDamage: "Pista / sentiero, nessun danno visibile",
+    railwayNoVisibleDamage: "Ferrovia / metro, nessun danno visibile",
+    areaOfInterest: "Area di interesse",
+    collapseLegend: "Comprimi legenda",
+    expandLegend: "Espandi legenda",
   },
 
   zh: {
@@ -406,6 +465,18 @@ const supplementalTranslations = {
     aoiUnavailableTitle: "该 AOI 公共图层尚不可用",
     aoiUnavailableText:
       "Copernicus 已列出该 AOI，但公共矢量图层尚未发布。Copernicus 发布数据后，此占位项会自动变为可用。",
+
+    builtUpGrading: "建筑物评估",
+    transportationGrading: "道路与铁路网络",
+    generalInformation: "一般信息",
+    highwayNoVisibleDamage: "高速路，无可见损毁",
+    mainRoadNoVisibleDamage: "主干道，无可见损毁",
+    localRoadNoVisibleDamage: "本地道路，无可见损毁",
+    trackNoVisibleDamage: "小路 / 便道，无可见损毁",
+    railwayNoVisibleDamage: "铁路 / 地铁，无可见损毁",
+    areaOfInterest: "关注区域",
+    collapseLegend: "收起图例",
+    expandLegend: "展开图例",
   },
 };
 /* Supplemental AOI translations: end */
@@ -423,6 +494,12 @@ const layerVisibility = {
   destroyed: true,
   roads: true,
   notAnalysed: false,
+  aoi: true,  transportHighway: true,
+  transportMain: true,
+  transportLocal: true,
+  transportTrack: true,
+  transportRailway: true,
+
 };
 
 const loadedSourceMeta = {};
@@ -451,6 +528,7 @@ document.addEventListener("DOMContentLoaded", () => {
   setupUiEvents();
   setupBasemapEvents();
   setupLayerToggleEvents();
+  setupLegendOverlayEvents();
 
   applyLanguage(currentLang);
   setStatus("loading", t("loadingTitle"), t("loadingText"), false);
@@ -668,6 +746,25 @@ function setupLayerToggleEvents() {
   });
 }
 
+function setupLegendOverlayEvents() {
+  const legend = document.getElementById("map-legend");
+  const button = document.getElementById("legend-collapse-btn");
+
+  if (!legend || !button) {
+    return;
+  }
+
+  button.addEventListener("click", () => {
+    const collapsed = legend.classList.toggle("collapsed");
+
+    button.textContent = collapsed ? "+" : "−";
+    button.setAttribute(
+      "aria-label",
+      collapsed ? t("expandLegend") : t("collapseLegend")
+    );
+  });
+}
+
 
 function closeMobileSidebar() {
   document.body.classList.remove("sidebar-open");
@@ -692,9 +789,21 @@ function applyLanguage(lang) {
     button.classList.toggle("active", button.dataset.lang === lang);
   });
 
+  const legend = document.getElementById("map-legend");
+  const legendButton = document.getElementById("legend-collapse-btn");
+
+  if (legendButton) {
+    const collapsed = Boolean(legend?.classList.contains("collapsed"));
+    legendButton.textContent = collapsed ? "+" : "−";
+    legendButton.setAttribute(
+      "aria-label",
+      collapsed ? t("expandLegend") : t("collapseLegend")
+    );
+  }
+
   renderDataStatusPanel();
 
-  if (latestAois.length) {
+  if (latestAois.length && typeof renderAoiList === "function") {
     renderAoiList(latestAois);
   }
 }
@@ -771,8 +880,8 @@ async function loadAoi(aoiNumber = selectedAoiNumber) {
 
     renderAoiList(latestAois);
     fitAoiExtent(info.aoi);
-
-    if (!urls.builtUpA && !urls.transportationL && !urls.notAnalysedA) {
+    showAoiExtent(info.aoi);
+if (!urls.builtUpA && !urls.transportationL && !urls.notAnalysedA) {
       setStatus(
         "error",
         t("aoiUnavailableTitle"),
@@ -814,6 +923,7 @@ async function loadAoi(aoiNumber = selectedAoiNumber) {
       throw new Error("No usable Copernicus layer loaded.");
     }
 
+    showAoiExtent(info.aoi);
     moveLabelsToTop();
 
     updateDataStatusPanel({
@@ -1783,6 +1893,387 @@ function withOptionalSourceLayer(layerDefinition, meta) {
 
   return layerDefinition;
 }
+/* Transportation and AOI style helpers: start */
+function propertyTextExpression(field) {
+  return [
+    "downcase",
+    [
+      "to-string",
+      [
+        "coalesce",
+        ["get", field],
+        "",
+      ],
+    ],
+  ];
+}
+
+function containsTextExpression(textExpression, token) {
+  return [">=", ["index-of", token, textExpression], 0];
+}
+
+function anyContainsTextExpression(textExpression, tokens) {
+  return [
+    "any",
+    ...tokens.map((token) => containsTextExpression(textExpression, token)),
+  ];
+}
+
+function notExpression(expression) {
+  return ["!", expression];
+}
+
+function transportationFallbackTextExpression() {
+  const fields = [
+    "transportation",
+    "Transportation",
+    "transportation_type",
+    "transportation_ty",
+    "road_type",
+    "roadType",
+    "RoadType",
+    "road_class",
+    "roadclass",
+    "class",
+    "Class",
+    "fclass",
+    "FCLASS",
+    "type",
+    "Type",
+    "category",
+    "Category",
+    "legend",
+    "Legend",
+    "description",
+    "Description",
+    "symbol_text",
+    "highway",
+    "railway",
+  ];
+
+  const parts = [];
+
+  fields.forEach((field) => {
+    parts.push(["to-string", ["coalesce", ["get", field], ""]]);
+    parts.push(" ");
+  });
+
+  return ["downcase", ["concat", ...parts]];
+}
+
+function transportationDamageTextExpression() {
+  return [
+    "downcase",
+    [
+      "to-string",
+      [
+        "coalesce",
+        ["get", "damage_gra"],
+        ["get", "damage_grade"],
+        ["get", "Damage_Grade"],
+        ["get", "DAMAGE_GRA"],
+        ["get", "damage"],
+        ["get", "Damage"],
+        "",
+      ],
+    ],
+  ];
+}
+
+function transportationNoVisibleDamageExpression() {
+  const damage = transportationDamageTextExpression();
+
+  return [
+    "any",
+
+    // Official EMSR884 GRA value.
+    containsTextExpression(damage, "no visible damage"),
+
+    // Defensive synonyms.
+    containsTextExpression(damage, "no damage"),
+    containsTextExpression(damage, "not damaged"),
+
+    // Fallback only if a future vector tile drops the damage field.
+    // Current AOI02 GRA has damage_gra and Not Analysed will NOT pass this.
+    ["==", damage, ""],
+  ];
+}
+
+function transportationClassFilter(kind) {
+  const simplified = propertyTextExpression("simplified");
+  const info = propertyTextExpression("info");
+  const objType = propertyTextExpression("obj_type");
+  const fallback = transportationFallbackTextExpression();
+
+  const highway = [
+    "any",
+    ["==", simplified, "highway"],
+    containsTextExpression(info, "2111-highways"),
+    containsTextExpression(info, "2111-highway"),
+    containsTextExpression(info, "highways"),
+    anyContainsTextExpression(fallback, [
+      "motorway",
+      "freeway",
+      "expressway",
+      "autopista",
+      "trunk",
+      "highway, no visible",
+      "highway no visible",
+      "highway - no visible",
+    ]),
+  ];
+
+  const main = [
+    "any",
+    ["==", simplified, "main roads"],
+    ["==", simplified, "main road"],
+    containsTextExpression(info, "21120-primary road"),
+    containsTextExpression(info, "21121-secondary road"),
+    containsTextExpression(info, "primary road"),
+    containsTextExpression(info, "secondary road"),
+    anyContainsTextExpression(fallback, [
+      "main road",
+      "mainroad",
+      "primary",
+      "secondary",
+      "major road",
+      "arterial",
+      "principal",
+    ]),
+  ];
+
+  const local = [
+    "any",
+    ["==", simplified, "local roads"],
+    ["==", simplified, "local road"],
+    containsTextExpression(info, "21122-local road"),
+    containsTextExpression(info, "local road"),
+    anyContainsTextExpression(fallback, [
+      "local road",
+      "localroad",
+      "residential",
+      "tertiary",
+      "unclassified",
+      "service road",
+      "minor road",
+      "street",
+      "calle",
+    ]),
+  ];
+
+  const track = [
+    "any",
+    ["==", simplified, "tracks"],
+    ["==", simplified, "track"],
+    containsTextExpression(info, "21124-cart track"),
+    containsTextExpression(info, "cart track"),
+    anyContainsTextExpression(fallback, [
+      "track",
+      "dirt road",
+      "unpaved",
+      "path",
+      "trail",
+      "camino",
+      "pista",
+    ]),
+  ];
+
+  const railway = [
+    "any",
+
+    // AOI02 has both Railways and Subways.
+    ["==", simplified, "railways"],
+    ["==", simplified, "railway"],
+    ["==", simplified, "subways"],
+    ["==", simplified, "subway"],
+
+    containsTextExpression(info, "2121-long-distance railways"),
+    containsTextExpression(info, "21221-subway"),
+    containsTextExpression(info, "railways"),
+    containsTextExpression(info, "railway"),
+    containsTextExpression(info, "subway"),
+
+    containsTextExpression(objType, "212-railways"),
+
+    anyContainsTextExpression(fallback, [
+      "railway",
+      "railroad",
+      "rail road",
+      "rail line",
+      "rail_line",
+      "ferrocarril",
+      "subway",
+      "metro",
+      "train",
+    ]),
+  ];
+
+  const known = ["any", highway, main, local, track, railway];
+  const noVisibleDamage = transportationNoVisibleDamageExpression();
+
+  if (kind === "highway") {
+    return ["all", noVisibleDamage, highway];
+  }
+
+  if (kind === "main") {
+    return [
+      "all",
+      noVisibleDamage,
+      notExpression(highway),
+      notExpression(railway),
+      notExpression(track),
+      main,
+    ];
+  }
+
+  if (kind === "track") {
+    return [
+      "all",
+      noVisibleDamage,
+      notExpression(highway),
+      notExpression(railway),
+      track,
+    ];
+  }
+
+  if (kind === "railway") {
+    return ["all", noVisibleDamage, railway];
+  }
+
+  if (kind === "local") {
+    return [
+      "all",
+      noVisibleDamage,
+      notExpression(highway),
+      notExpression(main),
+      notExpression(track),
+      notExpression(railway),
+      [
+        "any",
+
+        // Exact local-road class.
+        local,
+
+        // Safe fallback: unknown road/transport lines become gray local roads,
+        // never pink highways.
+        notExpression(known),
+      ],
+    ];
+  }
+
+  return ["==", ["get", "__never_show_this__"], "__hidden__"];
+}
+
+function lineWidthExpression(z9, z12, z16) {
+  return [
+    "interpolate",
+    ["linear"],
+    ["zoom"],
+    9,
+    z9,
+    12,
+    z12,
+    16,
+    z16,
+  ];
+}
+
+function showAoiExtent(aoi) {
+  if (!mapReady || !map || !aoi?.extent) {
+    return;
+  }
+
+  const geojson = wktPolygonToGeoJson(aoi.extent, {
+    name: aoi.name || "",
+    number: aoi.number,
+    activationCode: aoi.activationCode || "EMSR884",
+  });
+
+  if (!geojson) {
+    return;
+  }
+
+  const sourceId = SOURCE_IDS.aoi;
+  const existingSource = map.getSource(sourceId);
+
+  if (existingSource && typeof existingSource.setData === "function") {
+    existingSource.setData(geojson);
+  } else if (!existingSource) {
+    map.addSource(sourceId, {
+      type: "geojson",
+      data: geojson,
+    });
+  }
+
+  addOrReplaceDataLayer({
+    id: "aoi-fill",
+    type: "fill",
+    source: sourceId,
+    paint: {
+      "fill-color": "rgba(97, 240, 109, 0.12)",
+      "fill-opacity": 0.08,
+    },
+  });
+
+  addOrReplaceDataLayer({
+    id: "aoi-outline",
+    type: "line",
+    source: sourceId,
+    paint: {
+      "line-color": "#61f06d",
+      "line-opacity": 0.98,
+      "line-width": [
+        "interpolate",
+        ["linear"],
+        ["zoom"],
+        8,
+        1.5,
+        12,
+        2.6,
+        16,
+        4,
+      ],
+    },
+  });
+
+  applyLayerVisibility();
+}
+
+function wktPolygonToGeoJson(wkt, properties = {}) {
+  const matches =
+    String(wkt).match(/-?\d+(?:\.\d+)?\s+-?\d+(?:\.\d+)?/g) || [];
+
+  const coordinates = matches
+    .map((pair) => pair.trim().split(/\s+/).map(Number))
+    .filter(([lng, lat]) => Number.isFinite(lng) && Number.isFinite(lat));
+
+  if (coordinates.length < 3) {
+    return null;
+  }
+
+  const first = coordinates[0];
+  const last = coordinates[coordinates.length - 1];
+
+  if (first[0] !== last[0] || first[1] !== last[1]) {
+    coordinates.push([...first]);
+  }
+
+  return {
+    type: "FeatureCollection",
+    features: [
+      {
+        type: "Feature",
+        properties,
+        geometry: {
+          type: "Polygon",
+          coordinates: [coordinates],
+        },
+      },
+    ],
+  };
+}
+/* Transportation and AOI style helpers: end */
+
 
 function addBuiltUpStyleLayers(meta) {
   const color = damageColorExpression();
@@ -1832,31 +2323,88 @@ function addBuiltUpStyleLayers(meta) {
 }
 
 function addTransportationStyleLayer(meta) {
-  addOrReplaceDataLayer(
-    withOptionalSourceLayer(
-      {
-        id: "transportation-lines",
-        type: "line",
-        source: SOURCE_IDS.transportationL,
-        paint: {
-          "line-color": "rgba(245, 248, 255, 0.92)",
-          "line-opacity": 0.62,
-          "line-width": [
-            "interpolate",
-            ["linear"],
-            ["zoom"],
-            9,
-            0.5,
-            12,
-            1.0,
-            15,
-            2.0,
-          ],
-        },
+  const layers = [
+    {
+      id: "transportation-local-road-line",
+      filter: transportationClassFilter("local"),
+      paint: {
+        "line-color": "rgba(170, 174, 180, 0.92)",
+        "line-opacity": 0.82,
+        "line-width": lineWidthExpression(0.45, 1.0, 1.8),
       },
-      meta
-    )
-  );
+    },
+
+    {
+      id: "transportation-track-line",
+      filter: transportationClassFilter("track"),
+      paint: {
+        "line-color": "rgba(190, 194, 200, 0.96)",
+        "line-opacity": 0.86,
+        "line-width": lineWidthExpression(0.45, 1.0, 1.8),
+        "line-dasharray": [2, 2],
+      },
+    },
+
+    {
+      id: "transportation-main-road-line",
+      filter: transportationClassFilter("main"),
+      paint: {
+        "line-color": "rgba(246, 248, 250, 0.96)",
+        "line-opacity": 0.9,
+        "line-width": lineWidthExpression(0.65, 1.6, 2.8),
+      },
+    },
+
+    {
+      id: "transportation-highway-line",
+      filter: transportationClassFilter("highway"),
+      paint: {
+        "line-color": "rgba(255, 180, 188, 0.98)",
+        "line-opacity": 0.96,
+        "line-width": lineWidthExpression(1.0, 2.6, 4.6),
+      },
+    },
+
+    {
+      id: "transportation-railway-line",
+      filter: transportationClassFilter("railway"),
+      paint: {
+        "line-color": "rgba(8, 12, 18, 0.98)",
+        "line-opacity": 0.96,
+        "line-width": lineWidthExpression(0.7, 1.5, 2.4),
+      },
+    },
+
+    {
+      id: "transportation-railway-ticks",
+      filter: transportationClassFilter("railway"),
+      paint: {
+        "line-color": "rgba(8, 12, 18, 0.98)",
+        "line-opacity": 0.72,
+        "line-width": lineWidthExpression(2.0, 3.4, 5.2),
+        "line-dasharray": [0.1, 1.6],
+      },
+    },
+  ];
+
+  layers.forEach((layer) => {
+    addOrReplaceDataLayer(
+      withOptionalSourceLayer(
+        {
+          id: layer.id,
+          type: "line",
+          source: SOURCE_IDS.transportationL,
+          filter: layer.filter,
+          layout: {
+            "line-cap": "round",
+            "line-join": "round",
+          },
+          paint: layer.paint,
+        },
+        meta
+      )
+    );
+  });
 }
 
 function addNotAnalysedStyleLayers(meta) {
@@ -2307,13 +2855,41 @@ function applyLayerVisibility() {
     map.setFilter("built-up-outline", damageFilter);
   }
 
-  setLayerVisibility("transportation-lines", layerVisibility.roads);
+  setLayerVisibility(
+    "transportation-highway-line",
+    layerVisibility.transportHighway !== false
+  );
+
+  setLayerVisibility(
+    "transportation-main-road-line",
+    layerVisibility.transportMain !== false
+  );
+
+  setLayerVisibility(
+    "transportation-local-road-line",
+    layerVisibility.transportLocal !== false
+  );
+
+  setLayerVisibility(
+    "transportation-track-line",
+    layerVisibility.transportTrack !== false
+  );
+
+  const showRailway = layerVisibility.transportRailway !== false;
+  setLayerVisibility("transportation-railway-line", showRailway);
+  setLayerVisibility("transportation-railway-ticks", showRailway);
 
   const showNotAnalysed = Boolean(layerVisibility.notAnalysed);
 
   setLayerVisibility("not-analysed-fill", showNotAnalysed);
   setLayerVisibility("not-analysed-hatch-fill", showNotAnalysed);
   setLayerVisibility("not-analysed-outline", showNotAnalysed);
+
+  const showAoi = layerVisibility.aoi !== false;
+
+  AOI_LAYER_IDS.forEach((layerId) => {
+    setLayerVisibility(layerId, showAoi);
+  });
 }
 
 
