@@ -38,6 +38,22 @@ const CARACAS = {
   bearing: 0,
 };
 
+/* AOI selector globals: start */
+const DEFAULT_AOI_NUMBER = 2;
+
+let selectedAoiNumber = getInitialAoiNumber();
+let latestAois = [];
+
+const DATA_LAYER_IDS = [
+  "built-up-fill",
+  "built-up-outline",
+  "transportation-lines",
+  "not-analysed-fill",
+  "not-analysed-hatch-fill",
+  "not-analysed-outline",
+];
+/* AOI selector globals: end */
+
 /**
  * Manual emergency fallback.
  * These may be GeoJSON URLs OR TileJSON URLs.
@@ -345,6 +361,55 @@ const translations = {
   },
 };
 
+
+/* Supplemental AOI translations: start */
+const supplementalTranslations = {
+  es: {
+    aoiAvailable: "Disponible — capas de daño publicadas",
+    aoiInProgress: "En progreso",
+    aoiPlanned: "Planificado / esperando confirmación",
+    aoiNotProduced: "No producido",
+    aoiProcessing: "Esperando capas públicas",
+    aoiUnavailableTitle: "AOI aún sin capas públicas",
+    aoiUnavailableText:
+      "Copernicus ya listó esta AOI, pero las capas vectoriales públicas aún no están publicadas. El marcador se activará cuando Copernicus publique los datos.",
+  },
+
+  en: {
+    aoiAvailable: "Available — damage layers published",
+    aoiInProgress: "In progress",
+    aoiPlanned: "Planned / waiting confirmation",
+    aoiNotProduced: "Not produced",
+    aoiProcessing: "Waiting for public layers",
+    aoiUnavailableTitle: "AOI public layers not available yet",
+    aoiUnavailableText:
+      "Copernicus has listed this AOI, but public vector layers are not published yet. This placeholder will become active when Copernicus publishes the data.",
+  },
+
+  it: {
+    aoiAvailable: "Disponibile — layer di danno pubblicati",
+    aoiInProgress: "In corso",
+    aoiPlanned: "Pianificato / in attesa di conferma",
+    aoiNotProduced: "Non prodotto",
+    aoiProcessing: "In attesa dei layer pubblici",
+    aoiUnavailableTitle: "Layer pubblici AOI non ancora disponibili",
+    aoiUnavailableText:
+      "Copernicus ha elencato questa AOI, ma i layer vettoriali pubblici non sono ancora pubblicati. Il segnaposto si attiverà quando Copernicus pubblicherà i dati.",
+  },
+
+  zh: {
+    aoiAvailable: "可用 — 损毁图层已发布",
+    aoiInProgress: "处理中",
+    aoiPlanned: "已计划 / 等待确认",
+    aoiNotProduced: "未生产",
+    aoiProcessing: "等待公共图层",
+    aoiUnavailableTitle: "该 AOI 公共图层尚不可用",
+    aoiUnavailableText:
+      "Copernicus 已列出该 AOI，但公共矢量图层尚未发布。Copernicus 发布数据后，此占位项会自动变为可用。",
+  },
+};
+/* Supplemental AOI translations: end */
+
 let currentLang = "es";
 let currentBasemap = "satellite";
 let satelliteLabelsEnabled = true;
@@ -357,7 +422,7 @@ const layerVisibility = {
   damaged: true,
   destroyed: true,
   roads: true,
-  notAnalysed: true,
+  notAnalysed: false,
 };
 
 const loadedSourceMeta = {};
@@ -370,6 +435,7 @@ document.addEventListener("DOMContentLoaded", () => {
   els.statusMessage = document.getElementById("status-message");
   els.retry = document.getElementById("retry-btn");
   els.labelsToggle = document.getElementById("satellite-labels-toggle");
+  els.aoiList = document.getElementById("aoi-list");
 
   els.dataProduct = document.getElementById("data-product");
   els.dataDelivery = document.getElementById("data-delivery");
@@ -418,7 +484,7 @@ function initMap() {
     mapReady = true;
     addHatchPattern();
     setBasemap(currentBasemap);
-    await loadCaracas();
+    await loadAoi(selectedAoiNumber);
   });
 
   map.on("error", (event) => {
@@ -516,18 +582,47 @@ function setupLanguageButtons() {
 }
 
 function setupUiEvents() {
-  document.getElementById("load-caracas").addEventListener("click", () => {
-    closeMobileSidebar();
-    loadCaracas();
-  });
+  const oldCaracasButton = document.getElementById("load-caracas");
 
-  document.getElementById("sidebar-toggle").addEventListener("click", () => {
-    document.body.classList.toggle("sidebar-open");
-  });
+  if (oldCaracasButton) {
+    oldCaracasButton.addEventListener("click", () => {
+      selectedAoiNumber = 2;
+      updateAoiUrlParam(2);
+      closeMobileSidebar();
+      loadAoi(2);
+    });
+  }
 
-  els.retry.addEventListener("click", () => {
-    loadCaracas();
-  });
+  if (els.aoiList) {
+    els.aoiList.addEventListener("click", (event) => {
+      const button = event.target.closest("[data-aoi-number]");
+      if (!button) return;
+
+      const aoiNumber = Number(button.dataset.aoiNumber);
+
+      if (!Number.isFinite(aoiNumber)) {
+        return;
+      }
+
+      selectedAoiNumber = aoiNumber;
+      updateAoiUrlParam(aoiNumber);
+      closeMobileSidebar();
+      loadAoi(aoiNumber);
+    });
+  }
+
+  const sidebarToggle = document.getElementById("sidebar-toggle");
+  if (sidebarToggle) {
+    sidebarToggle.addEventListener("click", () => {
+      document.body.classList.toggle("sidebar-open");
+    });
+  }
+
+  if (els.retry) {
+    els.retry.addEventListener("click", () => {
+      loadAoi(selectedAoiNumber);
+    });
+  }
 
   const refreshDataButton = document.getElementById("refresh-data-btn");
   if (refreshDataButton) {
@@ -580,13 +675,16 @@ function closeMobileSidebar() {
 
 function applyLanguage(lang) {
   const dictionary = translations[lang] || translations.es;
+  const supplemental = supplementalTranslations[lang] || supplementalTranslations.es || {};
 
   document.documentElement.lang = lang === "zh" ? "zh" : lang;
 
   document.querySelectorAll("[data-i18n]").forEach((node) => {
     const key = node.dataset.i18n;
-    if (dictionary[key]) {
-      node.textContent = dictionary[key];
+    const value = dictionary[key] || supplemental[key];
+
+    if (value) {
+      node.textContent = value;
     }
   });
 
@@ -595,10 +693,22 @@ function applyLanguage(lang) {
   });
 
   renderDataStatusPanel();
+
+  if (latestAois.length) {
+    renderAoiList(latestAois);
+  }
 }
 
 function t(key) {
-  return (translations[currentLang] || translations.es)[key] || key;
+  const dictionary = translations[currentLang] || translations.es;
+  const supplemental = supplementalTranslations[currentLang] || supplementalTranslations.es || {};
+
+  return (
+    dictionary[key] ||
+    supplemental[key] ||
+    (supplementalTranslations.es && supplementalTranslations.es[key]) ||
+    key
+  );
 }
 
 function setBasemap(mode) {
@@ -633,22 +743,44 @@ function setLayerVisibility(layerId, visible) {
 }
 
 async function loadCaracas() {
+  selectedAoiNumber = 2;
+  updateAoiUrlParam(2);
+  return loadAoi(2);
+}
+
+async function loadAoi(aoiNumber = selectedAoiNumber) {
   if (!mapReady || isLoading) return;
 
+  const nextAoiNumber = Number(aoiNumber);
+  selectedAoiNumber = Number.isFinite(nextAoiNumber)
+    ? nextAoiNumber
+    : DEFAULT_AOI_NUMBER;
+
   isLoading = true;
+
+  latestDataStatusMeta = {};
+  renderDataStatusPanel();
+
   setStatus("loading", t("loadingTitle"), t("loadingText"), false);
 
-  map.flyTo({
-    center: CARACAS.center,
-    zoom: CARACAS.zoom,
-    pitch: CARACAS.pitch,
-    bearing: CARACAS.bearing,
-    duration: 1200,
-    essential: true,
-  });
-
   try {
-    const urls = await getCopernicusLayerUrls();
+    clearCopernicusDataLayers();
+
+    const info = await getCopernicusLayerInfo(selectedAoiNumber);
+    const urls = info.urls || {};
+
+    renderAoiList(latestAois);
+    fitAoiExtent(info.aoi);
+
+    if (!urls.builtUpA && !urls.transportationL && !urls.notAnalysedA) {
+      setStatus(
+        "error",
+        t("aoiUnavailableTitle"),
+        `${formatAoiLabel(info.aoi)} — ${t("aoiUnavailableText")}`,
+        false
+      );
+      return;
+    }
 
     const jobs = [
       urls.notAnalysedA
@@ -672,6 +804,7 @@ async function loadCaracas() {
 
     if (loadedCount === 0) {
       console.warn("Copernicus layer load results:", results);
+
       results.forEach((result, index) => {
         if (result.status === "rejected") {
           console.warn(`Layer promise ${index} rejected:`, result.reason);
@@ -688,7 +821,14 @@ async function loadCaracas() {
       loadedLayerCount: loadedCount,
     });
 
-    setStatus("success", t("loadedTitle"), t("loadedText"), false);
+    renderAoiList(latestAois);
+
+    setStatus(
+      "success",
+      t("loadedTitle"),
+      `${formatAoiLabel(info.aoi)} — ${t("loadedText")}`,
+      false
+    );
 
     window.setTimeout(() => {
       if (els.status.classList.contains("success")) {
@@ -697,6 +837,7 @@ async function loadCaracas() {
     }, 5500);
   } catch (error) {
     console.error(error);
+
     setStatus(
       "error",
       t("unavailableTitle"),
@@ -709,113 +850,22 @@ async function loadCaracas() {
 }
 
 async function getCopernicusLayerUrls() {
-  const overrides = cleanOverrideUrls(COPERNICUS_URL_OVERRIDES);
-
-  if (Object.keys(overrides).length === 3) {
-    return overrides;
-  }
-
-  const manifestInfo = await getCachedCopernicusManifest();
-  const manifest = manifestInfo.manifest;
-
-  const caracasAoi = findCaracasAoi(manifest);
-  if (!caracasAoi) {
-    throw new Error("Caracas AOI02 not found in EMSR884 manifest.");
-  }
-
-  const product = chooseCaracasProduct(caracasAoi);
-  if (!product) {
-    throw new Error("No usable Caracas GRA product found in EMSR884 manifest.");
-  }
-
-  updateDataStatusPanel({
-    activationCode: "EMSR884",
-    aoiName: caracasAoi.name || "Caracas",
-    aoiNumber: caracasAoi.number,
-    productId: product.id,
-    productType: product.type,
-    productStatus: product.version?.statusCode || "",
-    deliveryTime: product.version?.deliveryTime || "",
-    expectedDelivery: product.expectedDelivery || "",
-    acquisitionTime: getLatestAcquisitionTime(product),
-    lastChecked: manifestInfo.checkedAt,
-    fromCache: manifestInfo.fromCache,
-    cacheStale: manifestInfo.stale,
-    cacheAgeMs: manifestInfo.cacheAgeMs,
-    reportLink: manifest?.results?.[0]?.reportLink || "",
-    productsPath: manifest?.results?.[0]?.productsPath || "",
-    downloadPath: product.downloadPath || "",
-  });
-
-  const structuredUrls = extractLayerUrlsFromProduct(product);
-  const fallbackUrls = pickLayerUrls(collectUrlRecords(manifest));
-
-  const urls = {
-    ...fallbackUrls,
-    ...structuredUrls,
-    ...overrides,
-  };
-
-  console.info("Selected Copernicus layer URLs:", {
-    aoiName: caracasAoi.name,
-    aoiNumber: caracasAoi.number,
-    productId: product.id,
-    productType: product.type,
-    productStatus: product.version?.statusCode,
-    urls,
-  });
-
-  if (!urls.builtUpA && !urls.transportationL && !urls.notAnalysedA) {
-    throw new Error("No Caracas AOI02 builtUpA / transportationL / notAnalysedA URLs found.");
-  }
-
-  return urls;
+  const info = await getCopernicusLayerInfo(selectedAoiNumber);
+  return info.urls || {};
 }
 
 function findCaracasAoi(manifest) {
-  const aois = [];
-
-  for (const result of manifest?.results || []) {
-    if (Array.isArray(result.aois)) {
-      aois.push(...result.aois);
-    }
-  }
-
-  return (
-    aois.find((aoi) => Number(aoi.number) === 2) ||
-    aois.find((aoi) => String(aoi.name || "").toLowerCase() === "caracas") ||
-    aois.find((aoi) => String(aoi.name || "").toLowerCase().includes("caracas"))
-  );
+  return findAoiByNumber(manifest, 2);
 }
 
 function chooseCaracasProduct(aoi) {
-  const products = Array.isArray(aoi.products) ? aoi.products : [];
-
-  const hasUsefulLayers = (product) =>
-    Array.isArray(product.layers) &&
-    product.layers.some((layer) => {
-      const jsonUrl = String(layer.json || "").trim();
-      const name = String(layer.name || "");
-      return jsonUrl.startsWith("http") && classifyLayer(`${name} ${jsonUrl}`);
-    });
-
-  return (
-    products.find(
-      (product) =>
-        product.type === "GRA" &&
-        product.version?.statusCode === "F" &&
-        hasUsefulLayers(product)
-    ) ||
-    products.find((product) => product.type === "GRA" && hasUsefulLayers(product)) ||
-    products.find(hasUsefulLayers) ||
-    null
-  );
+  return chooseAoiProduct(aoi);
 }
 
 function extractLayerUrlsFromProduct(product) {
   const urls = {};
 
-  for (const layer of product.layers || []) {
+  for (const layer of product?.layers || []) {
     const jsonUrl = String(layer.json || "").trim();
 
     if (!jsonUrl.startsWith("http")) {
@@ -1218,6 +1268,337 @@ function renderFreshnessBadge(meta) {
   els.dataFreshnessBadge.textContent = `${t("olderData")} · ${Math.round(hours / 24)}d`;
   els.dataFreshnessBadge.className = "freshness-badge old";
 }
+
+/* AOI dynamic helpers: start */
+async function getCopernicusLayerInfo(aoiNumber = selectedAoiNumber) {
+  const overrides = cleanOverrideUrls(COPERNICUS_URL_OVERRIDES);
+
+  const manifestInfo = await getCachedCopernicusManifest();
+  const manifest = manifestInfo.manifest;
+
+  latestAois = getAllAois(manifest);
+  renderAoiList(latestAois);
+
+  const aoi = findAoiByNumber(manifest, aoiNumber);
+
+  if (!aoi) {
+    throw new Error(`AOI${String(aoiNumber).padStart(2, "0")} not found in EMSR884 manifest.`);
+  }
+
+  const product = chooseAoiProduct(aoi);
+  const structuredUrls = product ? extractLayerUrlsFromProduct(product) : {};
+
+  const urls = {
+    ...structuredUrls,
+    ...overrides,
+  };
+
+  updateDataStatusPanel({
+    activationCode: "EMSR884",
+    aoiName: aoi.name || `AOI${String(aoi.number).padStart(2, "0")}`,
+    aoiNumber: aoi.number,
+    productId: product?.id || "",
+    productType: product?.type || "",
+    productStatus: product?.version?.statusCode || "",
+    deliveryTime: product?.version?.deliveryTime || "",
+    expectedDelivery: product?.expectedDelivery || "",
+    acquisitionTime: product ? getLatestAcquisitionTime(product) : "",
+    lastChecked: manifestInfo.checkedAt,
+    fromCache: manifestInfo.fromCache,
+    cacheStale: manifestInfo.stale,
+    cacheAgeMs: manifestInfo.cacheAgeMs,
+    reportLink: manifest?.results?.[0]?.reportLink || "",
+    productsPath: manifest?.results?.[0]?.productsPath || "",
+    downloadPath: product?.downloadPath || "",
+  });
+
+  console.info("Selected Copernicus AOI/product:", {
+    aoiName: aoi.name,
+    aoiNumber: aoi.number,
+    productId: product?.id,
+    productType: product?.type,
+    productStatus: product?.version?.statusCode,
+    urls,
+  });
+
+  return {
+    manifest,
+    manifestInfo,
+    aoi,
+    product,
+    urls,
+  };
+}
+
+function getAllAois(manifest) {
+  const aois = [];
+
+  for (const result of manifest?.results || []) {
+    if (Array.isArray(result.aois)) {
+      aois.push(...result.aois);
+    }
+  }
+
+  return aois.sort((a, b) => Number(a.number) - Number(b.number));
+}
+
+function findAoiByNumber(manifest, aoiNumber) {
+  const wanted = Number(aoiNumber);
+
+  return getAllAois(manifest).find((aoi) => Number(aoi.number) === wanted) || null;
+}
+
+function productHasUsefulLayers(product) {
+  return (
+    Array.isArray(product?.layers) &&
+    product.layers.some((layer) => {
+      const jsonUrl = String(layer.json || "").trim();
+      const name = String(layer.name || "");
+
+      return jsonUrl.startsWith("http") && Boolean(classifyLayer(`${name} ${jsonUrl}`));
+    })
+  );
+}
+
+function chooseAoiProduct(aoi) {
+  const products = Array.isArray(aoi?.products) ? aoi.products : [];
+
+  return (
+    products.find(
+      (product) =>
+        product.type === "GRA" &&
+        product.version?.statusCode === "F" &&
+        productHasUsefulLayers(product)
+    ) ||
+    products.find((product) => product.type === "GRA" && productHasUsefulLayers(product)) ||
+    products.find((product) => product.version?.statusCode === "F" && productHasUsefulLayers(product)) ||
+    products.find(productHasUsefulLayers) ||
+    products.find((product) => product.type === "GRA" && product.version?.statusCode === "I") ||
+    products.find((product) => product.type === "GRA" && product.version?.statusCode === "W") ||
+    products.find((product) => product.type === "GRA") ||
+    products[0] ||
+    null
+  );
+}
+
+function renderAoiList(aois = latestAois) {
+  if (!els.aoiList || !Array.isArray(aois) || !aois.length) {
+    return;
+  }
+
+  els.aoiList.innerHTML = aois
+    .map((aoi) => {
+      const product = chooseAoiProduct(aoi);
+      const available = productHasUsefulLayers(product);
+      const selected = Number(aoi.number) === Number(selectedAoiNumber);
+
+      const numberText = String(aoi.number).padStart(2, "0");
+      const name = aoi.name || `AOI${numberText}`;
+      const statusCode = product?.version?.statusCode || "";
+
+      const dotClass = available ? "green" : statusCode === "N" ? "red" : "amber";
+
+      const classes = [
+        "aoi-card",
+        available ? "available-aoi" : "disabled placeholder-aoi",
+        selected ? "active-aoi" : "",
+      ]
+        .filter(Boolean)
+        .join(" ");
+
+      const productLabel = getProductLabel(product);
+      const statusText = getAoiCardStatusText(product, available);
+
+      return `
+        <button
+          class="${classes}"
+          type="button"
+          data-aoi-number="${Number(aoi.number)}"
+          aria-disabled="${available ? "false" : "true"}"
+        >
+          <span class="status-dot ${dotClass}" aria-hidden="true"></span>
+          <span>
+            <strong>${escapeHtml(numberText)} ${escapeHtml(name)}</strong>
+            <small>${escapeHtml(productLabel)} · ${escapeHtml(statusText)}</small>
+          </span>
+        </button>
+      `;
+    })
+    .join("");
+}
+
+function getProductLabel(product) {
+  if (!product) return "—";
+
+  if (product.type === "GRM") {
+    return "Ground Movement";
+  }
+
+  if (product.type === "GRA" && product.monitoring) {
+    return `Grading Monitoring ${product.monitoringNumber || ""}`.trim();
+  }
+
+  if (product.type === "GRA") {
+    return "Grading";
+  }
+
+  return product.type || "Product";
+}
+
+function getAoiCardStatusText(product, available) {
+  if (available) {
+    return t("aoiAvailable");
+  }
+
+  const status = product?.version?.statusCode || "";
+  let base = t("aoiProcessing");
+
+  if (status === "I") {
+    base = t("aoiInProgress");
+  } else if (status === "W") {
+    base = t("aoiPlanned");
+  } else if (status === "N") {
+    base = t("aoiNotProduced");
+  }
+
+  const time =
+    product?.expectedDelivery ||
+    product?.version?.deliveryTime ||
+    getLatestAcquisitionTime(product || {});
+
+  if (time) {
+    return `${base} · ${formatDateTime(time)}`;
+  }
+
+  return base;
+}
+
+function formatAoiLabel(aoi) {
+  if (!aoi) return "AOI";
+
+  return `${String(aoi.number).padStart(2, "0")} ${aoi.name || ""}`.trim();
+}
+
+function clearCopernicusDataLayers() {
+  if (!map) return;
+
+  for (const layerId of DATA_LAYER_IDS) {
+    if (map.getLayer(layerId)) {
+      map.removeLayer(layerId);
+    }
+  }
+
+  for (const sourceId of Object.values(SOURCE_IDS)) {
+    if (map.getSource(sourceId)) {
+      map.removeSource(sourceId);
+    }
+
+    delete loadedSourceMeta[sourceId];
+  }
+}
+
+function fitAoiExtent(aoi) {
+  if (!map || !aoi?.extent) {
+    map.flyTo({
+      center: CARACAS.center,
+      zoom: CARACAS.zoom,
+      pitch: CARACAS.pitch,
+      bearing: CARACAS.bearing,
+      duration: 1200,
+      essential: true,
+    });
+
+    return;
+  }
+
+  const bounds = getBoundsFromWktPolygon(aoi.extent);
+
+  if (!bounds) {
+    return;
+  }
+
+  map.fitBounds(bounds, {
+    padding: 80,
+    maxZoom: 14,
+    duration: 1200,
+    essential: true,
+  });
+}
+
+function getBoundsFromWktPolygon(wkt) {
+  const matches = String(wkt).match(/-?\d+(?:\.\d+)?\s+-?\d+(?:\.\d+)?/g) || [];
+
+  let minLng = Infinity;
+  let minLat = Infinity;
+  let maxLng = -Infinity;
+  let maxLat = -Infinity;
+
+  for (const pair of matches) {
+    const [lng, lat] = pair.trim().split(/\s+/).map(Number);
+
+    if (!Number.isFinite(lng) || !Number.isFinite(lat)) {
+      continue;
+    }
+
+    minLng = Math.min(minLng, lng);
+    minLat = Math.min(minLat, lat);
+    maxLng = Math.max(maxLng, lng);
+    maxLat = Math.max(maxLat, lat);
+  }
+
+  if (
+    !Number.isFinite(minLng) ||
+    !Number.isFinite(minLat) ||
+    !Number.isFinite(maxLng) ||
+    !Number.isFinite(maxLat)
+  ) {
+    return null;
+  }
+
+  return [
+    [minLng, minLat],
+    [maxLng, maxLat],
+  ];
+}
+
+function getInitialAoiNumber() {
+  const params = new URLSearchParams(window.location.search);
+  const raw = params.get("aoi") || params.get("aoiNumber") || params.get("aoi_number");
+
+  if (!raw) {
+    return DEFAULT_AOI_NUMBER;
+  }
+
+  const match = String(raw).match(/\d+/);
+
+  if (!match) {
+    return DEFAULT_AOI_NUMBER;
+  }
+
+  const number = Number(match[0]);
+
+  return Number.isFinite(number) ? number : DEFAULT_AOI_NUMBER;
+}
+
+function updateAoiUrlParam(aoiNumber) {
+  if (!window.history?.replaceState) {
+    return;
+  }
+
+  const url = new URL(window.location.href);
+  url.searchParams.set("aoi", String(Number(aoiNumber)));
+  window.history.replaceState({}, document.title, `${url.pathname}${url.search}${url.hash}`);
+}
+
+function escapeHtml(value) {
+  return String(value)
+    .replaceAll("&", "&amp;")
+    .replaceAll("<", "&lt;")
+    .replaceAll(">", "&gt;")
+    .replaceAll('"', "&quot;")
+    .replaceAll("'", "&#039;");
+}
+/* AOI dynamic helpers: end */
 
 
 async function fetchJsonDocument(url, label) {
@@ -1896,30 +2277,19 @@ function damageFilterExpression() {
 }
 
 function applyLayerVisibility() {
-  const notAnalysedAllowed = currentBasemap === "street";
   const notAnalysedInput = document.querySelector('[data-layer-toggle="notAnalysed"]');
 
   if (notAnalysedInput) {
     const row = notAnalysedInput.closest(".legend-toggle");
 
-    notAnalysedInput.disabled = !notAnalysedAllowed;
-
-    // In satellite mode, show it as unavailable/off.
-    // In street-map mode, restore the user's selected state.
-    notAnalysedInput.checked = notAnalysedAllowed
-      ? Boolean(layerVisibility.notAnalysed)
-      : false;
+    // Default is OFF, but user can enable it on satellite or street mode.
+    notAnalysedInput.disabled = false;
+    notAnalysedInput.checked = Boolean(layerVisibility.notAnalysed);
 
     if (row) {
-      row.classList.toggle("disabled", !notAnalysedAllowed);
-      row.classList.toggle(
-        "off",
-        !notAnalysedAllowed || !layerVisibility.notAnalysed
-      );
-
-      row.title = notAnalysedAllowed
-        ? ""
-        : "Disponible solo en el mapa de calles.";
+      row.classList.remove("disabled");
+      row.classList.toggle("off", !layerVisibility.notAnalysed);
+      row.title = "";
     }
   }
 
@@ -1939,7 +2309,7 @@ function applyLayerVisibility() {
 
   setLayerVisibility("transportation-lines", layerVisibility.roads);
 
-  const showNotAnalysed = notAnalysedAllowed && layerVisibility.notAnalysed;
+  const showNotAnalysed = Boolean(layerVisibility.notAnalysed);
 
   setLayerVisibility("not-analysed-fill", showNotAnalysed);
   setLayerVisibility("not-analysed-hatch-fill", showNotAnalysed);

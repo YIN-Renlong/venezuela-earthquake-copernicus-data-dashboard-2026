@@ -21,10 +21,10 @@
   <link rel="preconnect" href="https://rapidmapping.emergency.copernicus.eu" />
 
   <link href="https://unpkg.com/maplibre-gl@4.7.1/dist/maplibre-gl.css" rel="stylesheet" />
-  <link rel="stylesheet" href="style.css?v=fix-notanalysed-street-1782462103" />
+  <link rel="stylesheet" href="style.css?v=aoi-moron-1782463636" />
 
   <script src="https://unpkg.com/maplibre-gl@4.7.1/dist/maplibre-gl.js" defer></script>
-  <script src="app.js?v=fix-notanalysed-street-1782462103" defer></script>
+  <script src="app.js?v=aoi-moron-1782463636" defer></script>
 </head>
 
 <body>
@@ -62,36 +62,14 @@
       <section class="panel">
         <h2 data-i18n="areasTitle">Áreas de interés</h2>
 
-        <button id="load-caracas" class="aoi-card active-aoi" type="button">
-          <span class="status-dot green" aria-hidden="true"></span>
-          <span>
-            <strong>Caracas</strong>
-            <small data-i18n="caracasStatus">Activo — datos satelitales disponibles</small>
-          </span>
-        </button>
-
-        <div class="aoi-card disabled" aria-disabled="true">
-          <span class="status-dot amber" aria-hidden="true"></span>
-          <span>
-            <strong>Maracay</strong>
-            <small data-i18n="processing">Procesando datos satelitales</small>
-          </span>
-        </div>
-
-        <div class="aoi-card disabled" aria-disabled="true">
-          <span class="status-dot amber" aria-hidden="true"></span>
-          <span>
-            <strong>Valencia</strong>
-            <small data-i18n="processing">Procesando datos satelitales</small>
-          </span>
-        </div>
-
-        <div class="aoi-card disabled" aria-disabled="true">
-          <span class="status-dot amber" aria-hidden="true"></span>
-          <span>
-            <strong data-i18n="otherCities">Otras AOI</strong>
-            <small data-i18n="processing">Procesando datos satelitales</small>
-          </span>
+        <div id="aoi-list" class="aoi-list">
+          <button class="aoi-card active-aoi" type="button" data-aoi-number="2">
+            <span class="status-dot green" aria-hidden="true"></span>
+            <span>
+              <strong>02 Caracas</strong>
+              <small data-i18n="caracasStatus">Activo — datos satelitales disponibles</small>
+            </span>
+          </button>
         </div>
       </section>
 
@@ -240,7 +218,7 @@
         </label>
 
         <label class="legend-row legend-toggle">
-          <input class="layer-checkbox" type="checkbox" data-layer-toggle="notAnalysed" / checked>
+          <input class="layer-checkbox" type="checkbox" data-layer-toggle="notAnalysed" />
           <span class="swatch hatch"></span>
           <span data-i18n="notAnalysed">No analizado / nubes</span>
         </label>
