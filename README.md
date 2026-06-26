@@ -636,35 +636,6 @@ If Copernicus changes layer field names or styling rules, inspect the official `
 
 
 
-## Current activation coverage
-
-The dashboard reads AOIs dynamically from the EMSR884 manifest.
-
-Current AOIs listed by the activation include:
-
-- AOI00 Central Coastal Venezuela
-- AOI01 Petare
-- AOI02 Caracas
-- AOI03 Antimano
-- AOI04 Maracay
-- AOI05 Santa Cruz
-- AOI06 Moron
-- AOI07 Puerto Cabello
-- AOI08 San Felipe
-- AOI09 Valencia
-- AOI10 Guacara
-- AOI11 Villa de Cura
-- AOI12 Caraballeda
-
-AOIs with published public vector layers are shown as available. AOIs that are planned, in progress, waiting confirmation, or not produced are shown as placeholders until Copernicus publishes usable public layers.
-
-At the time of this update, completed public grading vector layers are available for:
-
-- **AOI02 Caracas**
-- **AOI06 Moron**
-
-This can change as Copernicus updates the official activation.
-
 ## Direct AOI links
 
 Default dashboard:
@@ -932,3 +903,393 @@ The dashboard is an unofficial public-interest interface for viewing public Cope
 Built by **YIN Renlong** as an unofficial public-interest interface using public Copernicus EMSR884 data.
 
 This project is independent and unofficial. It is not endorsed by Copernicus, the European Commission, local authorities, or emergency response agencies.
+
+
+
+
+
+## Development log — 26 June 2026
+
+This section records the main design thinking, debugging, and implementation changes made on **26 June 2026** while extending the dashboard beyond the original grading-focused workflow.
+
+### 1. Problem discovered: AOI00 was available but displayed no data
+
+During testing, **AOI00 Central Coastal Venezuela** appeared as an available AOI because the Copernicus EMSR884 API reported a completed product. However, clicking the AOI in the dashboard produced no visible map data.
+
+The reason was that AOI00 did not contain the same grading product structure used by AOI02 Caracas and AOI06 Moron. Instead of a normal `GRA` grading product with layers such as:
+
+```text
+builtUpA
+transportationL
+notAnalysedA
+```
+
+AOI00 contained a **GRM / Ground Movement** product with a layer named:
+
+```text
+groundMovementA
+```
+
+The dashboard’s previous logic only recognized grading-related layers. Therefore, AOI00 was correctly detected as having a finished product, but the product layer itself was not understood or styled by the application.
+
+### 2. Copernicus API and downloaded product comparison
+
+The Copernicus public API exposed the AOI00 ground movement layer in the product metadata, for example:
+
+```text
+EMSR884/AOI00/GRM_PRODUCT/EMSR884_AOI00_GRM_PRODUCT_groundMovementA_v1_VT
+```
+
+The locally downloaded Copernicus product ZIP contained matching files, including:
+
+```text
+EMSR884_AOI00_GRM_PRODUCT_groundMovementA_v1.json
+EMSR884_AOI00_GRM_PRODUCT_groundMovementA_v1.shp
+EMSR884_AOI00_GRM_PRODUCT_groundMovementA_v1.sld
+EMSR884_AOI00_GRM_PRODUCT_groundMovementA_v1.tif
+```
+
+Inspection of the local GeoJSON showed that the important styling attribute for ground movement is:
+
+```json
+{
+  "obj_desc": "LOS Displacement",
+  "value": "0.05 to 0.1",
+  "det_method": "Automatic extraction"
+}
+```
+
+The `value` field contains the displacement class used by the official Copernicus legend.
+
+Observed ground movement classes were:
+
+```text
+-0.5 to -0.2
+-0.2 to -0.1
+-0.1 to -0.05
+-0.05 to 0
+0 to 0.05
+0.05 to 0.1
+0.1 to 0.2
+0.2 to 0.5
+Above 0.5
+```
+
+This confirmed that the downloaded file and the online API layer describe the same product family, and that the dashboard needed a generic `groundMovementA` handler rather than an AOI00-specific workaround.
+
+### 3. Design decision: support product types generically, not only AOI00
+
+A key design decision was to avoid hard-coding AOI00.
+
+The dashboard should support:
+
+- AOIs that only have grading products.
+- AOIs that only have ground movement products.
+- AOIs that later receive both grading and ground movement products.
+- Future grading monitoring products when Copernicus publishes usable public vector layers.
+- Future AOIs and future product versions without requiring manual code changes for each AOI.
+
+The implementation was therefore extended around layer type detection and product selection rather than around a single AOI number.
+
+### 4. Ground movement layer support added
+
+Support was added for the new Copernicus layer key:
+
+```text
+groundMovementA
+```
+
+The dashboard now detects this layer name from the Copernicus manifest and can load it from the public `json` URL.
+
+A new MapLibre source was added:
+
+```text
+copernicus-ground-movement-a
+```
+
+New layer IDs are generated for each displacement class. Each class has a fill layer and outline layer, allowing visibility to be controlled class by class.
+
+The dashboard styles ground movement polygons using the `value` property. The styling follows a blue-to-red displacement scale similar to the official Copernicus legend:
+
+| Ground movement value | Color role                                      |
+| --------------------- | ----------------------------------------------- |
+| `-0.5 to -0.2`        | strong negative displacement, dark blue         |
+| `-0.2 to -0.1`        | medium negative displacement, blue              |
+| `-0.1 to -0.05`       | low negative displacement, light blue           |
+| `-0.05 to 0`          | near-zero negative displacement, very pale blue |
+| `0 to 0.05`           | near-zero positive displacement, pale yellow    |
+| `0.05 to 0.1`         | low positive displacement, orange               |
+| `0.1 to 0.2`          | medium positive displacement, orange-red        |
+| `0.2 to 0.5`          | high positive displacement, red                 |
+| `Above 0.5`           | very high positive displacement, dark red       |
+
+### 5. Separate ground movement legend toggles
+
+A new **Ground Movement** legend section was added to the map overlay.
+
+Each displacement class is separately toggleable:
+
+```text
+-0.5 to -0.2
+-0.2 to -0.1
+-0.1 to -0.05
+-0.05 to 0
+0 to 0.05
+0.05 to 0.1
+0.1 to 0.2
+0.2 to 0.5
+Above 0.5
+```
+
+This followed the design idea that the legend should not only explain the colors, but also allow the user to isolate specific displacement ranges.
+
+The legend is dynamic:
+
+- If an AOI has no ground movement layer, the ground movement legend section is hidden.
+- If an AOI has no transportation layer, the transportation legend section is hidden.
+- If an AOI has no built-up grading layer, the built-up grading rows are hidden.
+- If an AOI has a not-analysed layer, the not-analysed toggle is shown.
+- The AOI outline toggle remains under general information when the AOI boundary is available.
+
+This prevents the legend from showing irrelevant categories for the selected AOI.
+
+### 6. Product selection logic improved
+
+The earlier product selection logic primarily preferred finished `GRA` products. That worked for AOI02 Caracas and AOI06 Moron, but it was not enough for AOI00 because AOI00’s useful layer was in a `GRM` product.
+
+The selection logic was updated so the dashboard can collect the best available product per layer key:
+
+```text
+builtUpA
+transportationL
+notAnalysedA
+groundMovementA
+```
+
+This means a single selected AOI may use layer URLs from more than one product if Copernicus publishes multiple useful products for the same AOI.
+
+The dashboard now scores products using:
+
+- whether the product has useful public layers,
+- product status code,
+- product type (`GRA` or `GRM`),
+- monitoring flag and monitoring number,
+- product delivery time,
+- expected delivery time,
+- satellite acquisition time.
+
+This helps the dashboard handle both initial products and future monitoring products more gracefully.
+
+### 7. AOI00 now loads as a Ground Movement product
+
+After adding `groundMovementA` support, AOI00 Central Coastal Venezuela can be opened directly:
+
+```text
+?aoi=0
+```
+
+The dashboard now loads the ground movement layer and displays it using the new displacement legend.
+
+This fixes the earlier behavior where AOI00 appeared available but showed no usable data when selected.
+
+### 8. Syntax issue found and repaired during patching
+
+During the first code patch, a syntax issue was introduced:
+
+```js
+async async function loadAoi(...)
+```
+
+This happened because the replacement helper inserted a new `async function` while leaving the original `async` keyword in place.
+
+The browser reported:
+
+```text
+Uncaught SyntaxError: Unexpected token 'async'
+```
+
+A repair patch replaced all occurrences of:
+
+```js
+async async function
+```
+
+with:
+
+```js
+async function
+```
+
+After this, the app loaded correctly again.
+
+This debugging step led to a safer replacement helper that recognizes optional `async` prefixes when replacing JavaScript functions.
+
+### 9. Large GeoJSON performance issue identified
+
+AOI00’s ground movement GeoJSON is large, approximately tens of megabytes. The initial public URL tested was:
+
+```text
+https://rapidmapping-viewer.s3.eu-west-1.amazonaws.com/EMSR884/AOI00/GRM_PRODUCT/EMSR884_AOI00_GRM_PRODUCT_groundMovementA_v1.json
+```
+
+The dashboard originally used `cache: "no-store"` for all JSON fetches. This meant that when a user switched from AOI00 to another AOI and then back to AOI00, the browser could redownload the large ground movement JSON again.
+
+This was identified as a poor design for users with limited bandwidth.
+
+### 10. Browser-session JSON cache added
+
+A practical browser-session cache was added for large Copernicus layer JSON documents.
+
+The dashboard now keeps a memory cache keyed by layer URL:
+
+```js
+const JSON_DOCUMENT_MEMORY_CACHE = new Map();
+```
+
+When the same layer URL is requested again during the same browser tab/session, the dashboard reuses the already fetched and parsed JSON object instead of downloading it again.
+
+This improves the common interaction:
+
+```text
+AOI00 → AOI02 → AOI00
+```
+
+The first AOI00 load still has to download the large file, but returning to AOI00 in the same session should reuse cached data.
+
+### 11. Browser HTTP cache allowed for layer JSON
+
+The manifest still uses freshness-oriented loading because it is small and may change. However, layer JSON URLs are versioned product URLs, so they can safely use normal browser HTTP caching.
+
+Layer JSON fetches now use cache behavior appropriate for reusable versioned assets instead of forcing `no-store`.
+
+Design principle:
+
+- The manifest should be checked periodically.
+- Large versioned layer files should be reused when the URL has not changed.
+- If Copernicus publishes a new product version, the manifest should expose a new or updated layer URL.
+
+### 12. Professional large-layer loading notice added
+
+A user-facing notice was added for large ground movement layers.
+
+When loading a potentially large Copernicus ground movement layer for the first time in the session, the dashboard shows a professional message explaining that the first load may take some time on slower connections and that cached data will be reused when possible during the same browser session.
+
+English text:
+
+```text
+Loading large geospatial layer
+
+Downloading a large Copernicus layer. The first load may take some time on slower connections; revisiting this AOI in the same browser session will reuse cached data when possible.
+```
+
+Equivalent translations were added in Spanish, Italian, and Chinese.
+
+### 13. Optimization ideas considered but deferred
+
+Several larger optimization ideas were considered.
+
+#### Local raw GeoJSON mirror
+
+One idea was to download the large Copernicus GeoJSON and host it in this repository or through GitHub Pages.
+
+This was not implemented for now because it would still require users to download a large raw GeoJSON file. It would move the bandwidth source from Copernicus S3 to GitHub Pages, but it would not solve the fundamental first-load size problem.
+
+#### GitHub Actions update pipeline
+
+Another idea was to use GitHub Actions to periodically check the Copernicus manifest and mirror or optimize changed files.
+
+This was deferred because the current priority was to keep the project simple and avoid adding an automated build/update pipeline.
+
+#### Vector tiles or PMTiles
+
+A stronger long-term solution would be to convert large GeoJSON layers into vector tiles or PMTiles.
+
+This would allow progressive map loading by visible tile instead of downloading the full AOI layer at once. It would be technically better for large layers, but it adds complexity and was intentionally deferred for this iteration.
+
+The current implementation remains a static browser-only dashboard with a simpler cache-based optimization.
+
+### 14. Title and subtitle updated
+
+The project title and subtitle were updated to better describe the broader scope of the dashboard now that it supports both grading and ground movement products.
+
+New English title:
+
+```text
+Venezuela 2026 Earthquake: Geospatial Impact Dashboard (EMSR884)
+```
+
+New English subtitle:
+
+```text
+Unofficial interface for Copernicus satellite assessments (grading and ground movement).
+```
+
+The same concept was translated into Spanish, Italian, and Chinese in the UI.
+
+The HTML `<title>` and meta description were also updated.
+
+### 15. Current result after this iteration
+
+After this development session, the dashboard supports:
+
+- Dynamic AOI selection across EMSR884.
+- Grading products (`GRA`) with built-up, transportation, and not-analysed layers.
+- Ground movement products (`GRM`) with displacement classes.
+- AOI00 Central Coastal Venezuela ground movement display.
+- Class-by-class ground movement legend toggles.
+- Dynamic legend visibility depending on the layers actually available for the selected AOI.
+- Improved product selection across GRA, GRM, and monitoring products.
+- Browser-session caching for large layer JSON files.
+- A professional large-layer loading notice.
+- Updated multilingual title and subtitle.
+
+The dashboard still intentionally avoids:
+
+- acting as an official emergency response tool,
+- collecting rescue, casualty, or personal data,
+- requiring a backend server,
+- requiring a Mapbox token,
+- requiring GitHub Actions or a preprocessing pipeline for the current version.
+
+### 16. Remaining future improvement ideas
+
+Potential future improvements include:
+
+- persistent browser caching with Cache Storage or IndexedDB,
+- optional PMTiles/vector-tile generation for very large layers,
+- a lightweight data catalog for optimized static layers,
+- better progress indication for very large downloads,
+- popup inspection for ground movement polygons,
+- more detailed handling of future Copernicus monitoring products,
+- automated schema inspection tools for new product types.
+
+These are future enhancements and were not implemented in this session.
+
+## Current activation coverage (26 June 2026)
+
+The dashboard reads AOIs dynamically from the EMSR884 manifest.
+
+Current AOIs listed by the activation include:
+
+- AOI00 Central Coastal Venezuela
+- AOI01 Petare
+- AOI02 Caracas
+- AOI03 Antimano
+- AOI04 Maracay
+- AOI05 Santa Cruz
+- AOI06 Moron
+- AOI07 Puerto Cabello
+- AOI08 San Felipe
+- AOI09 Valencia
+- AOI10 Guacara
+- AOI11 Villa de Cura
+- AOI12 Caraballeda
+
+AOIs with published public vector layers are shown as available. AOIs that are planned, in progress, waiting confirmation, or not produced are shown as placeholders until Copernicus publishes usable public layers.
+
+At the time of this update, completed public grading vector layers are available for:
+
+- **AOI02 Caracas**
+- **AOI06 Moron**
+
+This can change as Copernicus updates the official activation.
