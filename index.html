@@ -1,0 +1,301 @@
+<!doctype html>
+<html lang="es">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+
+  <title>Venezuela Earthquake Copernicus Data Dashboard 2026</title>
+
+  <meta
+    name="description"
+    content="Unofficial public dashboard for Copernicus EMSR884 Venezuela earthquake satellite damage data."
+  />
+
+  <link rel="preconnect" href="https://unpkg.com" />
+  <link rel="preconnect" href="https://server.arcgisonline.com" />
+  <link rel="preconnect" href="https://tile.openstreetmap.org" />
+  <link rel="preconnect" href="https://a.basemaps.cartocdn.com" />
+  <link rel="preconnect" href="https://b.basemaps.cartocdn.com" />
+  <link rel="preconnect" href="https://c.basemaps.cartocdn.com" />
+  <link rel="preconnect" href="https://d.basemaps.cartocdn.com" />
+  <link rel="preconnect" href="https://rapidmapping.emergency.copernicus.eu" />
+
+  <link href="https://unpkg.com/maplibre-gl@4.7.1/dist/maplibre-gl.css" rel="stylesheet" />
+  <link rel="stylesheet" href="style.css?v=hidden-refresh-1" />
+
+  <script src="https://unpkg.com/maplibre-gl@4.7.1/dist/maplibre-gl.js" defer></script>
+  <script src="app.js?v=hidden-refresh-1" defer></script>
+</head>
+
+<body>
+  <noscript>
+    <div class="noscript">
+      This dashboard requires JavaScript to load the public map.
+    </div>
+  </noscript>
+
+  <div id="app-shell">
+    <aside id="sidebar" class="sidebar" aria-label="Dashboard sidebar">
+      <header class="brand">
+        <p class="eyebrow" data-i18n="eyebrow">Panel satelital público</p>
+        <h1 data-i18n="title">Mapa del terremoto en Venezuela 2026</h1>
+        <p class="subtitle" data-i18n="subtitle">
+          Visor no oficial de datos públicos Copernicus EMSR884.
+        </p>
+      </header>
+
+      <section class="language-panel" aria-label="Language selector">
+        <button class="lang-btn active" data-lang="es" type="button">ES</button>
+        <button class="lang-btn" data-lang="en" type="button">EN</button>
+        <button class="lang-btn" data-lang="it" type="button">IT</button>
+        <button class="lang-btn" data-lang="zh" type="button">中文</button>
+      </section>
+
+      <section class="notice danger-soft" role="note">
+        <strong data-i18n="safetyTitle">Aviso de seguridad pública</strong>
+        <p data-i18n="safetyText">
+          Este panel es solo para información pública. No es una herramienta oficial de rescate,
+          evacuación o respuesta de emergencia. Siga siempre a las autoridades locales.
+        </p>
+      </section>
+
+      <section class="panel">
+        <h2 data-i18n="areasTitle">Áreas de interés</h2>
+
+        <button id="load-caracas" class="aoi-card active-aoi" type="button">
+          <span class="status-dot green" aria-hidden="true"></span>
+          <span>
+            <strong>Caracas</strong>
+            <small data-i18n="caracasStatus">Activo — datos satelitales disponibles</small>
+          </span>
+        </button>
+
+        <div class="aoi-card disabled" aria-disabled="true">
+          <span class="status-dot amber" aria-hidden="true"></span>
+          <span>
+            <strong>Maracay</strong>
+            <small data-i18n="processing">Procesando datos satelitales</small>
+          </span>
+        </div>
+
+        <div class="aoi-card disabled" aria-disabled="true">
+          <span class="status-dot amber" aria-hidden="true"></span>
+          <span>
+            <strong>Valencia</strong>
+            <small data-i18n="processing">Procesando datos satelitales</small>
+          </span>
+        </div>
+
+        <div class="aoi-card disabled" aria-disabled="true">
+          <span class="status-dot amber" aria-hidden="true"></span>
+          <span>
+            <strong data-i18n="otherCities">Otras AOI</strong>
+            <small data-i18n="processing">Procesando datos satelitales</small>
+          </span>
+        </div>
+      </section>
+
+      <section class="panel">
+        <h2 data-i18n="basemapTitle">Mapa base</h2>
+
+        <div class="segmented" role="group" aria-label="Basemap selector">
+          <button
+            id="basemap-satellite-btn"
+            class="segment active"
+            type="button"
+            data-basemap="satellite"
+            data-i18n="satelliteBasemap"
+          >
+            Satélite + calles
+          </button>
+
+          <button
+            id="basemap-street-btn"
+            class="segment"
+            type="button"
+            data-basemap="street"
+            data-i18n="streetBasemap"
+          >
+            Mapa de calles
+          </button>
+        </div>
+
+        <label class="toggle-row">
+          <input id="satellite-labels-toggle" type="checkbox" checked />
+          <span data-i18n="satelliteLabels">Mostrar nombres de calles sobre satélite</span>
+        </label>
+
+        <p class="helper" data-i18n="basemapNote">
+          Prototipo: satélite por Esri; mapa de calles por OpenStreetMap. Para tráfico masivo,
+          cambiar a un proveedor de teselas de producción.
+        </p>
+      </section>
+
+      <section class="panel data-status-panel">
+        <h2 data-i18n="dataStatusTitle">Estado de los datos</h2>
+
+        <div class="data-source-links">
+          <a
+            id="data-official-source"
+            href="https://rapidmapping.emergency.copernicus.eu/backend/dashboard-api/public-activations/?code=EMSR884"
+            target="_blank"
+            rel="noopener noreferrer"
+            data-i18n="officialSource"
+          >
+            Fuente oficial Copernicus EMSR884
+          </a>
+          <a
+            id="data-report-link"
+            href="https://rapidmapping.emergency.copernicus.eu/"
+            target="_blank"
+            rel="noopener noreferrer"
+          >
+            Report
+          </a>
+          <a
+            id="data-download-link"
+            class="hidden"
+            href="#"
+            target="_blank"
+            rel="noopener noreferrer"
+          >
+            ZIP
+          </a>
+        </div>
+
+        <div class="data-status-grid">
+          <div class="data-row">
+            <span class="data-label" data-i18n="activationCode">Activación</span>
+            <strong class="data-value">EMSR884</strong>
+          </div>
+
+          <div class="data-row">
+            <span class="data-label" data-i18n="aoiProduct">Área / producto</span>
+            <strong id="data-product" class="data-value">Caracas AOI02</strong>
+          </div>
+
+          <div class="data-row">
+            <span class="data-label" data-i18n="copernicusDelivery">Entrega de Copernicus</span>
+            <strong id="data-delivery" class="data-value">—</strong>
+          </div>
+
+          <div class="data-row">
+            <span class="data-label" data-i18n="satelliteAcquisition">Imagen satelital</span>
+            <strong id="data-acquisition" class="data-value">—</strong>
+          </div>
+
+          <div class="data-row">
+            <span class="data-label" data-i18n="lastChecked">Última comprobación</span>
+            <strong id="data-last-checked" class="data-value">—</strong>
+          </div>
+
+          <div class="data-row">
+            <span class="data-label" data-i18n="lastSuccessfulLoad">Carga correcta del visor</span>
+            <strong id="data-successful-load" class="data-value">—</strong>
+          </div>
+
+          <div class="data-row">
+            <span class="data-label" data-i18n="cacheStatus">Cache</span>
+            <strong id="data-cache-status" class="data-value">—</strong>
+          </div>
+        </div>
+
+        <div id="data-freshness-badge" class="freshness-badge neutral">—</div>
+
+        <button id="refresh-data-btn" class="secondary-btn hidden" aria-hidden="true" tabindex="-1" type="button" data-i18n="refreshData">
+          Actualizar datos
+        </button>
+
+        <p class="helper" data-i18n="dataFreshnessNote">
+          Este visor comprueba el manifiesto oficial de Copernicus como máximo cada 30 minutos.
+          La entrega de Copernicus indica cuándo Copernicus publicó el producto; la última
+          comprobación indica cuándo este visor revisó la fuente oficial.
+        </p>
+      </section>
+
+      <section class="panel">
+        <h2 data-i18n="legendTitle">Leyenda</h2>
+
+        <label class="legend-row legend-toggle">
+          <input class="layer-checkbox" type="checkbox" data-layer-toggle="possible" checked />
+          <span class="swatch possible"></span>
+          <span data-i18n="possiblyDamaged">Posible daño</span>
+        </label>
+
+        <label class="legend-row legend-toggle">
+          <input class="layer-checkbox" type="checkbox" data-layer-toggle="damaged" checked />
+          <span class="swatch damaged"></span>
+          <span data-i18n="confirmedDamaged">Daño / daño confirmado</span>
+        </label>
+
+        <label class="legend-row legend-toggle">
+          <input class="layer-checkbox" type="checkbox" data-layer-toggle="destroyed" checked />
+          <span class="swatch destroyed"></span>
+          <span data-i18n="destroyed">Destruido</span>
+        </label>
+
+        <label class="legend-row legend-toggle">
+          <input class="layer-checkbox" type="checkbox" data-layer-toggle="roads" checked />
+          <span class="swatch road"></span>
+          <span data-i18n="roads">Carreteras / transporte</span>
+        </label>
+
+        <label class="legend-row legend-toggle">
+          <input class="layer-checkbox" type="checkbox" data-layer-toggle="notAnalysed" />
+          <span class="swatch hatch"></span>
+          <span data-i18n="notAnalysed">No analizado / nubes</span>
+        </label>
+
+      </section>
+
+      <section class="notice">
+        <strong data-i18n="dataTitle">Aclaración de datos</strong>
+        <p data-i18n="dataText">
+          Las clases de daño son evaluaciones remotas por satélite y pueden requerir verificación
+          en campo. Amarillo significa posible daño, no destrucción confirmada. El tramado gris
+          significa que el área no fue analizada porque la vista satelital estaba obstruida o no
+          disponible.
+        </p>
+      </section>
+
+      <footer class="source">
+        <p>
+          <span data-i18n="source">Fuente</span>:
+          <a
+            href="https://rapidmapping.emergency.copernicus.eu/"
+            target="_blank"
+            rel="noopener noreferrer"
+          >
+            Copernicus EMS Rapid Mapping
+          </a>
+        </p>
+        <p class="small" data-i18n="unofficial">
+          Interfaz no oficial de interés público. No se recopilan datos de rescate ni de víctimas.
+        </p>
+      </footer>
+    </aside>
+
+    <main class="map-area">
+      <div class="mobile-topbar">
+        <button id="sidebar-toggle" class="icon-btn" type="button" aria-label="Open sidebar">
+          ☰
+        </button>
+        <span data-i18n="mobileTitle">Mapa del terremoto en Venezuela 2026</span>
+      </div>
+
+      <div id="map" aria-label="Map of Caracas earthquake satellite damage layers"></div>
+
+      <div id="map-status" class="map-status" role="status" aria-live="polite">
+        <div class="spinner" aria-hidden="true"></div>
+        <div>
+          <strong id="status-title">Cargando datos satelitales</strong>
+          <p id="status-message">Obteniendo capas públicas de Copernicus EMSR884.</p>
+          <button id="retry-btn" class="retry hidden" type="button" data-i18n="retry">
+            Reintentar
+          </button>
+        </div>
+      </div>
+    </main>
+  </div>
+</body>
+</html>
