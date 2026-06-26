@@ -21,10 +21,10 @@
   <link rel="preconnect" href="https://rapidmapping.emergency.copernicus.eu" />
 
   <link href="https://unpkg.com/maplibre-gl@4.7.1/dist/maplibre-gl.css" rel="stylesheet" />
-  <link rel="stylesheet" href="style.css?v=hidden-refresh-1" />
+  <link rel="stylesheet" href="style.css?v=clean-footer-1782461782" />
 
   <script src="https://unpkg.com/maplibre-gl@4.7.1/dist/maplibre-gl.js" defer></script>
-  <script src="app.js?v=hidden-refresh-1" defer></script>
+  <script src="app.js?v=clean-footer-1782461782" defer></script>
 </head>
 
 <body>
@@ -116,8 +116,7 @@
             data-basemap="street"
             data-i18n="streetBasemap"
           >
-            Mapa de calles
-          </button>
+            Calles OSM suaves</button>
         </div>
 
         <label class="toggle-row">
@@ -259,7 +258,7 @@
       </section>
 
       <footer class="source">
-        <p>
+        <p class="footer-source-line">
           <span data-i18n="source">Fuente</span>:
           <a
             href="https://rapidmapping.emergency.copernicus.eu/"
@@ -269,8 +268,18 @@
             Copernicus EMS Rapid Mapping
           </a>
         </p>
-        <p class="small" data-i18n="unofficial">
-          Interfaz no oficial de interés público. No se recopilan datos de rescate ni de víctimas.
+
+        <p class="small footer-credit">
+          <span data-i18n="footerCredit">
+            Construido por YIN Renlong como interfaz pública no oficial. No recopila datos de rescate, víctimas ni personas desaparecidas. Si encuentra un problema,
+          </span>
+          <a
+            id="project-issue-link"
+            href="https://github.com/YIN-Renlong/venezuela-earthquake-copernicus-data-dashboard-2026"
+            target="_blank"
+            rel="noopener noreferrer"
+            data-i18n="footerGithubLink"
+          >visite el proyecto en GitHub</a><span data-i18n="footerPeriod">.</span>
         </p>
       </footer>
     </aside>

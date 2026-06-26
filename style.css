@@ -615,3 +615,45 @@ button.aoi-card:hover {
 .secondary-btn:hover {
   background: rgba(255, 255, 255, 0.12);
 }
+
+
+.legend-toggle.disabled {
+  opacity: 0.38;
+  cursor: not-allowed;
+}
+
+.legend-toggle.disabled .layer-checkbox,
+.legend-toggle.disabled .swatch,
+.legend-toggle.disabled span {
+  cursor: not-allowed;
+}
+
+.issue-report {
+  padding-top: 8px;
+  border-top: 1px solid rgba(255, 255, 255, 0.08);
+}
+
+.issue-report a {
+  margin-left: 4px;
+  font-weight: 800;
+}
+
+
+.built-by-author {
+  color: var(--muted);
+}
+
+
+.footer-source-line {
+  margin-bottom: 8px !important;
+}
+
+.footer-credit {
+  line-height: 1.5;
+}
+
+.footer-credit a {
+  font-weight: 800;
+  text-decoration: underline;
+  text-underline-offset: 2px;
+}

@@ -78,10 +78,10 @@ const translations = {
 
     basemapTitle: "Mapa base",
     satelliteBasemap: "Satélite + calles",
-    streetBasemap: "Mapa de calles",
+    streetBasemap: "Calles OSM suaves",
     satelliteLabels: "Mostrar nombres de calles sobre satélite",
     basemapNote:
-      "Prototipo: satélite por Esri; mapa de calles por OpenStreetMap. Para tráfico masivo, cambiar a un proveedor de teselas de producción.",
+      "Prototipo: satélite por Esri; calles claras por CARTO/OpenStreetMap. Para tráfico masivo, cambiar a un proveedor de teselas de producción.",
 
     dataStatusTitle: "Estado de los datos",
     officialSource: "Fuente oficial Copernicus EMSR884",
@@ -117,6 +117,11 @@ const translations = {
     unofficial:
       "Interfaz no oficial de interés público. No se recopilan datos de rescate ni de víctimas.",
 
+    builtBy: "Construido por YIN Renlong · Interfaz no oficial de interés público usando datos públicos de Copernicus EMSR884.",
+    issueText: "Si encuentra un problema, visite el proyecto en GitHub.",
+    footerCredit: "Construido por YIN Renlong como interfaz pública no oficial. No recopila datos de rescate, víctimas ni personas desaparecidas. Si encuentra un problema,",
+    footerGithubLink: "visite el proyecto en GitHub",
+    footerPeriod: ".",
     loadingTitle: "Cargando datos satelitales",
     loadingText: "Obteniendo capas públicas de Copernicus EMSR884.",
     loadedTitle: "Datos satelitales cargados",
@@ -144,10 +149,10 @@ const translations = {
 
     basemapTitle: "Basemap",
     satelliteBasemap: "Satellite + streets",
-    streetBasemap: "Street map",
+    streetBasemap: "Muted OSM",
     satelliteLabels: "Show street names over satellite",
     basemapNote:
-      "Prototype: satellite imagery by Esri; street map by OpenStreetMap. For massive traffic, replace with a production tile provider.",
+      "Prototype: satellite imagery by Esri; clean street map by CARTO/OpenStreetMap. For massive traffic, replace with a production tile provider.",
 
     dataStatusTitle: "Data status",
     officialSource: "Official Copernicus EMSR884 source",
@@ -183,6 +188,11 @@ const translations = {
     unofficial:
       "Unofficial public-interest interface. No rescue or casualty data is collected.",
 
+    builtBy: "Built by YIN Renlong · Unofficial public-interest interface using public Copernicus EMSR884 data.",
+    issueText: "If you find an issue, please visit the GitHub project.",
+    footerCredit: "Built by YIN Renlong as an unofficial public-interest interface. No rescue, casualty, or missing-person data is collected. If you find an issue,",
+    footerGithubLink: "visit the GitHub project",
+    footerPeriod: ".",
     loadingTitle: "Loading satellite data",
     loadingText: "Fetching Copernicus EMSR884 public layers.",
     loadedTitle: "Satellite data loaded",
@@ -210,10 +220,10 @@ const translations = {
 
     basemapTitle: "Mappa base",
     satelliteBasemap: "Satellite + strade",
-    streetBasemap: "Mappa stradale",
+    streetBasemap: "OSM morbida",
     satelliteLabels: "Mostra i nomi delle strade sul satellite",
     basemapNote:
-      "Prototipo: immagini satellitari di Esri; mappa stradale di OpenStreetMap. Per traffico massivo, usare un provider di tile di produzione.",
+      "Prototipo: immagini satellitari di Esri; strade chiare di CARTO/OpenStreetMap. Per traffico massivo, usare un provider di tile di produzione.",
 
     dataStatusTitle: "Stato dei dati",
     officialSource: "Fonte ufficiale Copernicus EMSR884",
@@ -249,6 +259,11 @@ const translations = {
     unofficial:
       "Interfaccia non ufficiale di interesse pubblico. Non vengono raccolti dati su soccorsi o vittime.",
 
+    builtBy: "Realizzato da YIN Renlong · Interfaccia non ufficiale di interesse pubblico basata su dati pubblici Copernicus EMSR884.",
+    issueText: "Se trovi un problema, visita il progetto su GitHub.",
+    footerCredit: "Realizzato da YIN Renlong come interfaccia pubblica non ufficiale. Non vengono raccolti dati su soccorsi, vittime o persone scomparse. Se trovi un problema,",
+    footerGithubLink: "visita il progetto su GitHub",
+    footerPeriod: ".",
     loadingTitle: "Caricamento dati satellitari",
     loadingText: "Recupero dei layer pubblici Copernicus EMSR884.",
     loadedTitle: "Dati satellitari caricati",
@@ -276,10 +291,10 @@ const translations = {
 
     basemapTitle: "底图",
     satelliteBasemap: "卫星 + 街道",
-    streetBasemap: "街道地图",
+    streetBasemap: "柔和 OSM",
     satelliteLabels: "在卫星图上显示街道名称",
     basemapNote:
-      "原型：卫星影像来自 Esri；街道地图来自 OpenStreetMap。若访问量很大，应更换为生产级瓦片服务。",
+      "原型：卫星影像来自 Esri；清晰街道地图来自 CARTO/OpenStreetMap。若访问量很大，应更换为生产级瓦片服务。",
 
     dataStatusTitle: "数据状态",
     officialSource: "Copernicus EMSR884 官方来源",
@@ -314,6 +329,11 @@ const translations = {
     source: "来源",
     unofficial: "非官方公益界面。不收集救援或伤亡数据。",
 
+    builtBy: "由 YIN Renlong 构建 · 使用 Copernicus EMSR884 公共数据的非官方公益界面。",
+    issueText: "如果发现问题，请访问 GitHub 项目。",
+    footerCredit: "由 YIN Renlong 构建，作为非官方公益界面。不收集救援、伤亡或失踪人员数据。如发现问题，请",
+    footerGithubLink: "访问 GitHub 项目",
+    footerPeriod: "。",
     loadingTitle: "正在加载卫星数据",
     loadingText: "正在获取 Copernicus EMSR884 公共图层。",
     loadedTitle: "卫星数据已加载",
@@ -424,11 +444,12 @@ function createMapStyle() {
 
       "osm-streets": {
         type: "raster",
-        tiles: ["https://tile.openstreetmap.org/{z}/{x}/{y}.png"],
+        tiles: [
+          "https://tile.openstreetmap.org/{z}/{x}/{y}.png",
+        ],
         tileSize: 256,
         maxzoom: 19,
-        attribution:
-          '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors',
+        attribution: "&copy; <a href=\"https://www.openstreetmap.org/copyright\">OpenStreetMap</a> contributors",
       },
 
       "carto-dark-labels": {
@@ -467,6 +488,8 @@ function createMapStyle() {
         layout: { visibility: "none" },
         paint: {
           "raster-opacity": 0.94,
+          "raster-saturation": -0.5,
+          "raster-contrast": -0.06,
         },
       },
 
@@ -1886,9 +1909,30 @@ function applyLayerVisibility() {
 
   setLayerVisibility("transportation-lines", layerVisibility.roads);
 
-  setLayerVisibility("not-analysed-fill", layerVisibility.notAnalysed);
-  setLayerVisibility("not-analysed-hatch-fill", layerVisibility.notAnalysed);
-  setLayerVisibility("not-analysed-outline", layerVisibility.notAnalysed);
+  const notAnalysedAllowed = currentBasemap === "street";
+  const showNotAnalysed = notAnalysedAllowed && layerVisibility.notAnalysed;
+
+  setLayerVisibility("not-analysed-fill", showNotAnalysed);
+  setLayerVisibility("not-analysed-hatch-fill", showNotAnalysed);
+  setLayerVisibility("not-analysed-outline", showNotAnalysed);
+
+  const notAnalysedInput = document.querySelector('[data-layer-toggle="notAnalysed"]');
+
+  if (notAnalysedInput) {
+    const row = notAnalysedInput.closest(".legend-toggle");
+
+    notAnalysedInput.disabled = !notAnalysedAllowed;
+    notAnalysedInput.checked = showNotAnalysed;
+
+    if (row) {
+      row.classList.toggle("disabled", !notAnalysedAllowed);
+      row.classList.toggle("off", !showNotAnalysed);
+
+      row.title = notAnalysedAllowed
+        ? ""
+        : "Disponible solo en el mapa de calles.";
+    }
+  }
 }
 
 
