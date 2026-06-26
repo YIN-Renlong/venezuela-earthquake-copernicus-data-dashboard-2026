@@ -2,11 +2,13 @@
 
 Unofficial public dashboard for the 2026 Venezuela earthquakes, using public Copernicus EMS Rapid Mapping data for activation **EMSR884**.
 
+Live demo: https://yin-renlong.github.io/venezuela-earthquake-copernicus-data-dashboard-2026/
+
 ## Purpose
 
 This project translates public Copernicus satellite damage mapping data into a lightweight, mobile-friendly, multilingual web dashboard.
 
-The first MVP focuses on **Caracas / AOI02**.
+The first prototype MVP focuses on **Caracas / AOI02**.
 
 ## Important disclaimer
 
