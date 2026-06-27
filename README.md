@@ -28,25 +28,43 @@ Always follow local authorities, emergency services, and official humanitarian c
 
 Copernicus damage classes are remote satellite assessments. They may require field verification and may not reflect the latest ground conditions.
 
-## Current activation coverage (26 June 2026)
+## Current activation coverage (27 June 2026)
 
 The dashboard reads AOIs dynamically from the EMSR884 manifest.
 
 Current AOIs listed by the activation include:
 
-- AOI00 Central Coastal Venezuela
-- AOI01 Petare
-- AOI02 Caracas
-- AOI03 Antimano
-- AOI04 Maracay
-- AOI05 Santa Cruz
-- AOI06 Moron
-- AOI07 Puerto Cabello
-- AOI08 San Felipe
-- AOI09 Valencia
-- AOI10 Guacara
-- AOI11 Villa de Cura
-- AOI12 Caraballeda
+* **AOI00 Central Coastal Venezuela**
+  * Ground Movement: ✅ Completed
+* **AOI01 Petare**
+  * Grading: 🕒 Planned
+* **AOI02 Caracas**
+  * Grading: ✅ Completed
+  * Grading Monitoring 1: 🔄 In progress
+* **AOI03 Antimano**
+  * Grading: ❌ Not produced
+* **AOI04 Maracay**
+  * Grading: 🕒 Planned
+* **AOI05 Santa Cruz**
+  * Grading: 🕒 Planned
+* **AOI06 Moron**
+  * Grading: ✅ Completed
+  * Grading Monitoring 1: ✅ Completed
+* **AOI07 Puerto Cabello**
+  * Grading: ❌ Not produced
+  * Grading Monitoring 1: 🕒 Planned
+* **AOI08 San Felipe**
+  * Grading: ✅ Completed
+  * Grading Monitoring 1: 🕒 Planned (Waiting confirmation)
+* **AOI09 Valencia**
+  * Grading: ❌ Not produced
+* **AOI10 Guacara**
+  * Grading: ❌ Not produced
+* **AOI11 Villa de Cura**
+  * Grading: ❌ Not produced
+* **AOI12 Caraballeda**
+  * Grading: ✅ Completed
+  * Grading Monitoring 1: 🔄 In progress
 
 AOIs with published public vector layers are shown as available. AOIs that are planned, in progress, waiting confirmation, or not produced are shown as placeholders until Copernicus publishes usable public layers.
 
