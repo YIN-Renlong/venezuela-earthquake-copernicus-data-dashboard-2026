@@ -6,12 +6,6 @@ Unofficial public dashboard for the 2026 Venezuela earthquake response context, 
 
 
 
-## Live demo to visit:
-
-https://yin-renlong.github.io/venezuela-earthquake-copernicus-data-dashboard-2026/
-
-
-
 ## Purpose
 
 This project translates public Copernicus EMS Rapid Mapping data into a lightweight, mobile-friendly, multilingual web dashboard.
@@ -19,6 +13,10 @@ This project translates public Copernicus EMS Rapid Mapping data into a lightwei
 The dashboard is designed for public situational awareness. It helps non-specialist users view Copernicus satellite-derived grading layers, AOI status, map context, and data freshness without needing GIS desktop software.
 
 The project started as a Caracas / AOI02 prototype and has now been expanded into a dynamic EMSR884 AOI dashboard.
+
+## Live demo to visit:
+
+https://yin-renlong.github.io/venezuela-earthquake-copernicus-data-dashboard-2026/
 
 ## Important disclaimer
 
