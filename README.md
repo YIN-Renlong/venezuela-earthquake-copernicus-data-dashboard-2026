@@ -6,7 +6,7 @@ Unofficial public dashboard for the 2026 Venezuela earthquake response context, 
 
 
 
-## Live demo
+## Live demo to visit:
 
 https://yin-renlong.github.io/venezuela-earthquake-copernicus-data-dashboard-2026/
 
