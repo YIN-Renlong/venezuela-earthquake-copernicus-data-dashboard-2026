@@ -1,4 +1,4 @@
-# Venezuela Earthquake Copernicus Data Dashboard 2026
+# Venezuela Earthquake Copernicus Data GIS Dashboard 2026
 
 Unofficial public dashboard for the 2026 Venezuela earthquake response context, using public Copernicus EMS Rapid Mapping data for activation **EMSR884**.
 
