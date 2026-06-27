@@ -2,8 +2,15 @@
 
 Unofficial public dashboard for the 2026 Venezuela earthquake response context, using public Copernicus EMS Rapid Mapping data for activation **EMSR884**.
 
-**Live demo:**  
+![Dashboard Screenshot](assets/img1.jpeg)
+
+
+
+## Live demo
+
 https://yin-renlong.github.io/venezuela-earthquake-copernicus-data-dashboard-2026/
+
+
 
 ## Purpose
 
