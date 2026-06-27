@@ -35,36 +35,36 @@ The dashboard reads AOIs dynamically from the EMSR884 manifest.
 Current AOIs listed by the activation include:
 
 * **AOI00 Central Coastal Venezuela**
-  * Ground Movement: ✅ Completed
+  * Ground Movement: ✅ Completed (situation as of 25/06/2026, 22:42 (UTC))
 * **AOI01 Petare**
-  * Grading: 🕒 Planned
+  * Grading: 🕒 Planned (28/06/2026 afternoon (UTC))
 * **AOI02 Caracas**
-  * Grading: ✅ Completed
-  * Grading Monitoring 1: 🔄 In progress
+  * Grading Monitoring 1: 🔄 In progress (27/06/2026 morning (UTC))
+  * Grading: ✅ Completed (situation as of 25/06/2026, 14:59 (UTC))
 * **AOI03 Antimano**
-  * Grading: ❌ Not produced
+  * Grading: ❌ Not produced (situation as of 25/06/2026, 15:17 (UTC))
 * **AOI04 Maracay**
-  * Grading: 🕒 Planned
+  * Grading: 🕒 Planned (28/06/2026 early morning (UTC))
 * **AOI05 Santa Cruz**
-  * Grading: 🕒 Planned
+  * Grading: 🕒 Planned (27/06/2026 afternoon (UTC))
 * **AOI06 Moron**
-  * Grading: ✅ Completed
-  * Grading Monitoring 1: ✅ Completed
+  * Grading Monitoring 1: ✅ Completed (situation as of 26/06/2026, 15:11 (UTC))
+  * Grading: ✅ Completed (situation as of 25/06/2026, 20:36 (UTC))
 * **AOI07 Puerto Cabello**
-  * Grading: ❌ Not produced
-  * Grading Monitoring 1: 🕒 Planned
+  * Grading Monitoring 1: 🕒 Planned (28/06/2026 early morning (UTC))
+  * Grading: ❌ Not produced (situation as of 26/06/2026, 14:03 (UTC))
 * **AOI08 San Felipe**
-  * Grading: ✅ Completed
   * Grading Monitoring 1: 🕒 Planned (Waiting confirmation)
+  * Grading: ✅ Completed (situation as of 25/06/2026, 20:37 (UTC))
 * **AOI09 Valencia**
-  * Grading: ❌ Not produced
+  * Grading: ❌ Not produced (situation as of 26/06/2026, 14:04 (UTC))
 * **AOI10 Guacara**
-  * Grading: ❌ Not produced
+  * Grading: ❌ Not produced (situation as of 25/06/2026, 14:59 (UTC))
 * **AOI11 Villa de Cura**
-  * Grading: ❌ Not produced
+  * Grading: ❌ Not produced (situation as of 26/06/2026, 15:19 (UTC))
 * **AOI12 Caraballeda**
-  * Grading: ✅ Completed
-  * Grading Monitoring 1: 🔄 In progress
+  * Grading Monitoring 1: 🔄 In progress (27/06/2026 early morning (UTC))
+  * Grading: ✅ Completed (situation as of 26/06/2026, 10:00 (UTC))
 
 AOIs with published public vector layers are shown as available. AOIs that are planned, in progress, waiting confirmation, or not produced are shown as placeholders until Copernicus publishes usable public layers.
 
