@@ -1708,3 +1708,21 @@ button.aoi-card:hover {
 }
 
 /* Client-side COG source imagery styles: end */
+
+/* Official product status display styles: start */
+.status-dot.red {
+  background: var(--red);
+  color: var(--red);
+  box-shadow: 0 0 18px rgba(255, 59, 48, 0.9);
+}
+
+.status-dot.amber {
+  background: var(--amber);
+  color: var(--amber);
+}
+
+.status-dot.green {
+  background: var(--green);
+  color: var(--green);
+}
+/* Official product status display styles: end */

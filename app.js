@@ -8645,3 +8645,149 @@ async function loadAoi(aoiNumber = selectedAoiNumber) {
 }
 
 /* Client-side COG source imagery rendering: end */
+
+/* Official product status display override: start */
+
+function getOfficialProductStatusCodeV9(product) {
+  return String(product?.version?.statusCode || "").toUpperCase();
+}
+
+function getOfficialProductDotClassV9(product) {
+  const status = getOfficialProductStatusCodeV9(product);
+
+  if (status === "F") {
+    return "green";
+  }
+
+  if (status === "N") {
+    return "red";
+  }
+
+  if (status === "W" || status === "I") {
+    return "amber";
+  }
+
+  // Defensive fallback: if Copernicus gives a layer but no status code, show amber
+  // unless it has real vector layers and no known negative status.
+  if (productHasVectorLayersV8(product)) {
+    return "green";
+  }
+
+  return "amber";
+}
+
+function getOfficialProductBaseStatusTextV9(product) {
+  const status = getOfficialProductStatusCodeV9(product);
+  const hasVector = productHasVectorLayersV8(product);
+
+  if (status === "F") {
+    return hasVector ? t("aoiAvailable") : t("sourceImageOnly");
+  }
+
+  if (status === "N") {
+    return t("aoiNotProduced");
+  }
+
+  if (status === "W") {
+    return t("aoiPlanned");
+  }
+
+  if (status === "I") {
+    return t("aoiInProgress");
+  }
+
+  if (hasVector) {
+    return t("aoiAvailable");
+  }
+
+  return t("aoiProcessing");
+}
+
+function getAoiCardStatusText(product, available) {
+  if (!product) {
+    return t("aoiProcessing");
+  }
+
+  const status = getOfficialProductStatusCodeV9(product);
+  const hasVector = productHasVectorLayersV8(product);
+  const hasCog = productHasCogLayersV8(product);
+
+  const parts = [
+    getOfficialProductBaseStatusTextV9(product),
+  ];
+
+  // Important: a source image can exist even when Copernicus says "Not produced".
+  // In that case, keep the official red/not-produced status, but explain that
+  // the source image can still be viewed.
+  if (hasCog && !hasVector && status !== "F") {
+    parts.push(t("sourceImageOnly"));
+  }
+
+  const time =
+    product?.expectedDelivery ||
+    product?.version?.deliveryTime ||
+    getLatestAcquisitionTime(product || {});
+
+  if (time) {
+    parts.push(formatDateTime(time));
+  }
+
+  return parts.filter(Boolean).join(" · ");
+}
+
+function formatProductStatusLineV4(product) {
+  return getAoiCardStatusText(product, productHasUsefulLayers(product));
+}
+
+function renderAoiList(aois = latestAois) {
+  if (!els.aoiList || !Array.isArray(aois) || !aois.length) {
+    return;
+  }
+
+  els.aoiList.innerHTML = aois
+    .map((aoi) => {
+      const product = chooseAoiProduct(aoi);
+      const selectable = productHasUsefulLayers(product);
+      const selected = Number(aoi.number) === Number(selectedAoiNumber);
+
+      const numberText = String(aoi.number).padStart(2, "0");
+      const name = aoi.name || `AOI${numberText}`;
+
+      // The dot follows official Copernicus product status, not just whether
+      // a COG source image exists.
+      const dotClass = getOfficialProductDotClassV9(product);
+
+      const classes = [
+        "aoi-card",
+        selectable ? "available-aoi" : "disabled placeholder-aoi",
+        selected ? "active-aoi" : "",
+      ]
+        .filter(Boolean)
+        .join(" ");
+
+      const productLabel = getProductLabel(product);
+      const statusText = getAoiCardStatusText(product, selectable);
+
+      return `
+        <div class="aoi-entry ${selected ? "selected-aoi-entry" : ""}">
+          <button
+            class="${classes}"
+            type="button"
+            data-aoi-number="${Number(aoi.number)}"
+            aria-disabled="${selectable ? "false" : "true"}"
+            title="${escapeHtml(statusText)}"
+          >
+            <span class="status-dot ${dotClass}" aria-hidden="true"></span>
+            <span>
+              <strong>${escapeHtml(numberText)} ${escapeHtml(name)}</strong>
+              <small>${escapeHtml(productLabel)} · ${escapeHtml(statusText)}</small>
+            </span>
+          </button>
+          ${selected ? renderInlineProductOptionsV4(aoi) : ""}
+        </div>
+      `;
+    })
+    .join("");
+}
+
+/* Official product status display override: end */
