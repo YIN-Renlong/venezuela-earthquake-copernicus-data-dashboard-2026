@@ -2546,3 +2546,227 @@ button.aoi-card:hover {
 }
 
 /* Final flat product timeline selector: end */
+
+/* Final flat AOI list design: start */
+
+/*
+  AOI selector redesign:
+  - no large rounded city cards
+  - selected AOI uses a thin official-status rail + subtle tint
+  - hover uses a small modern slide/light animation
+  - product selector below remains the flat timeline/checklist
+*/
+
+.aoi-list {
+  display: grid !important;
+  gap: 0 !important;
+}
+
+.aoi-entry {
+  position: relative;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.075);
+}
+
+.aoi-entry:last-child {
+  border-bottom: 0;
+}
+
+/* Make AOI rows flat instead of card-like. */
+.aoi-list .aoi-card {
+  position: relative !important;
+  width: 100% !important;
+
+  display: grid !important;
+  grid-template-columns: 14px minmax(0, 1fr) !important;
+  gap: 13px !important;
+  align-items: center !important;
+
+  margin: 0 !important;
+  padding: 14px 12px 14px 14px !important;
+
+  border: 0 !important;
+  border-radius: 0 !important;
+  background: transparent !important;
+  box-shadow: none !important;
+  outline: 0 !important;
+
+  color: var(--text) !important;
+  text-align: left;
+  cursor: pointer;
+
+  transform: translateX(0);
+  transition:
+    background-color 160ms ease,
+    transform 160ms ease,
+    box-shadow 160ms ease,
+    opacity 160ms ease;
+}
+
+/* Remove old card selected/available/placeholder visuals. */
+.aoi-list .aoi-card.available-aoi,
+.aoi-list .aoi-card.placeholder-aoi,
+.aoi-list .aoi-card.active-aoi {
+  border: 0 !important;
+  border-radius: 0 !important;
+  box-shadow: none !important;
+}
+
+/* Hover: slight, professional motion. */
+.aoi-list .aoi-card:hover {
+  background: rgba(255, 255, 255, 0.045) !important;
+  transform: translateX(2px);
+}
+
+.aoi-list .aoi-card:hover .status-dot {
+  transform: scale(1.08);
+}
+
+/* Keyboard focus remains visible. */
+.aoi-list .aoi-card:focus-visible {
+  box-shadow:
+    inset 3px 0 0 #8cc7ff,
+    0 0 0 2px rgba(140, 199, 255, 0.7) !important;
+}
+
+/* Selected AOI: subtle official-status rail, no rounded box. */
+.aoi-list .aoi-card.active-aoi.status-green-aoi-card {
+  background: rgba(57, 217, 138, 0.065) !important;
+  box-shadow: inset 3px 0 0 var(--green) !important;
+}
+
+.aoi-list .aoi-card.active-aoi.status-red-aoi-card {
+  background: rgba(255, 59, 48, 0.055) !important;
+  box-shadow: inset 3px 0 0 var(--red) !important;
+}
+
+.aoi-list .aoi-card.active-aoi.status-amber-aoi-card {
+  background: rgba(255, 200, 87, 0.058) !important;
+  box-shadow: inset 3px 0 0 var(--amber) !important;
+}
+
+/* Avoid a second hover translation feeling too jumpy on the selected AOI. */
+.aoi-list .aoi-card.active-aoi:hover {
+  transform: translateX(1px);
+}
+
+/* Smaller and calmer official status dot. */
+.aoi-list .aoi-card .status-dot {
+  width: 11px !important;
+  height: 11px !important;
+  flex: 0 0 11px !important;
+  border-radius: 999px;
+  box-shadow: 0 0 14px currentColor;
+  transition:
+    transform 160ms ease,
+    box-shadow 160ms ease;
+}
+
+.aoi-list .aoi-card.active-aoi .status-dot.green {
+  box-shadow:
+    0 0 0 4px rgba(57, 217, 138, 0.09),
+    0 0 18px rgba(57, 217, 138, 0.85);
+}
+
+.aoi-list .aoi-card.active-aoi .status-dot.red {
+  box-shadow:
+    0 0 0 4px rgba(255, 59, 48, 0.08),
+    0 0 18px rgba(255, 59, 48, 0.82);
+}
+
+.aoi-list .aoi-card.active-aoi .status-dot.amber {
+  box-shadow:
+    0 0 0 4px rgba(255, 200, 87, 0.08),
+    0 0 18px rgba(255, 200, 87, 0.74);
+}
+
+.aoi-card-text {
+  min-width: 0;
+}
+
+.aoi-list .aoi-card strong {
+  display: block;
+  color: rgba(244, 247, 251, 0.94);
+  font-size: 0.98rem;
+  font-weight: 880;
+  line-height: 1.12;
+  letter-spacing: -0.02em;
+}
+
+.aoi-list .aoi-card small {
+  display: block;
+  margin-top: 5px;
+  color: rgba(174, 184, 199, 0.9);
+  font-size: 0.78rem;
+  font-weight: 620;
+  line-height: 1.28;
+  overflow-wrap: anywhere;
+}
+
+/* Selected text gets a small contrast lift. */
+.aoi-list .aoi-card.active-aoi strong {
+  color: #f6f9fc;
+}
+
+.aoi-list .aoi-card.active-aoi.status-green-aoi-card small {
+  color: rgba(196, 234, 213, 0.96);
+}
+
+.aoi-list .aoi-card.active-aoi.status-red-aoi-card small {
+  color: rgba(255, 205, 202, 0.96);
+}
+
+.aoi-list .aoi-card.active-aoi.status-amber-aoi-card small {
+  color: rgba(255, 227, 176, 0.96);
+}
+
+/* Disabled still follows official status, but muted. */
+.aoi-list .aoi-card.disabled {
+  opacity: 0.58 !important;
+}
+
+/* Product timeline alignment under the flat AOI row. */
+.aoi-list .aoi-entry.selected-aoi-entry .aoi-product-options.checkbox-product-options {
+  margin: 0 0 9px 37px !important;
+  padding-left: 15px !important;
+}
+
+/* Since the parent AOI is no longer a card, make the product timeline lighter too. */
+.aoi-list .aoi-entry.selected-aoi-entry .aoi-product-options.checkbox-product-options::before {
+  top: -8px !important;
+  height: 8px !important;
+}
+
+/* On mobile keep movement minimal and rows compact. */
+@media (max-width: 520px) {
+  .aoi-list .aoi-card {
+    grid-template-columns: 12px minmax(0, 1fr) !important;
+    gap: 11px !important;
+    padding: 13px 10px 13px 12px !important;
+  }
+
+  .aoi-list .aoi-card:hover,
+  .aoi-list .aoi-card.active-aoi:hover {
+    transform: translateX(0);
+  }
+
+  .aoi-list .aoi-card .status-dot {
+    width: 10px !important;
+    height: 10px !important;
+    flex-basis: 10px !important;
+  }
+
+  .aoi-list .aoi-card strong {
+    font-size: 0.92rem;
+  }
+
+  .aoi-list .aoi-card small {
+    font-size: 0.74rem;
+  }
+
+  .aoi-list .aoi-entry.selected-aoi-entry .aoi-product-options.checkbox-product-options {
+    margin-left: 30px !important;
+    padding-left: 13px !important;
+  }
+}
+
+/* Final flat AOI list design: end */

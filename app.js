@@ -8845,3 +8845,97 @@ function renderInlineProductOptionsV4(aoi) {
 }
 
 /* Product checkbox official status color override: end */
+
+/* Final flat AOI list status-class override: start */
+
+function getAoiStatusClassV12(product) {
+  let dot = "amber";
+
+  if (typeof getOfficialProductDotClassV9 === "function") {
+    dot = getOfficialProductDotClassV9(product);
+  } else {
+    const status = String(product?.version?.statusCode || "").toUpperCase();
+
+    if (status === "F") dot = "green";
+    else if (status === "N") dot = "red";
+    else dot = "amber";
+  }
+
+  if (dot === "green") return "status-green-aoi";
+  if (dot === "red") return "status-red-aoi";
+  if (dot === "amber") return "status-amber-aoi";
+
+  return "status-amber-aoi";
+}
+
+function getAoiDotClassV12(product) {
+  if (typeof getOfficialProductDotClassV9 === "function") {
+    return getOfficialProductDotClassV9(product);
+  }
+
+  const status = String(product?.version?.statusCode || "").toUpperCase();
+
+  if (status === "F") return "green";
+  if (status === "N") return "red";
+  return "amber";
+}
+
+function renderAoiList(aois = latestAois) {
+  if (!els.aoiList || !Array.isArray(aois) || !aois.length) {
+    return;
+  }
+
+  els.aoiList.innerHTML = aois
+    .map((aoi) => {
+      const product = chooseAoiProduct(aoi);
+      const selectable = productHasUsefulLayers(product);
+      const selected = Number(aoi.number) === Number(selectedAoiNumber);
+
+      const numberText = String(aoi.number).padStart(2, "0");
+      const name = aoi.name || `AOI${numberText}`;
+      const dotClass = getAoiDotClassV12(product);
+      const statusClass = getAoiStatusClassV12(product);
+
+      const entryClasses = [
+        "aoi-entry",
+        statusClass,
+        selected ? "selected-aoi-entry" : "",
+      ]
+        .filter(Boolean)
+        .join(" ");
+
+      const cardClasses = [
+        "aoi-card",
+        `${statusClass}-card`,
+        selectable ? "available-aoi" : "disabled placeholder-aoi",
+        selected ? "active-aoi" : "",
+      ]
+        .filter(Boolean)
+        .join(" ");
+
+      const productLabel = getProductLabel(product);
+      const statusText = getAoiCardStatusText(product, selectable);
+
+      return `
+        <div class="${entryClasses}">
+          <button
+            class="${cardClasses}"
+            type="button"
+            data-aoi-number="${Number(aoi.number)}"
+            aria-disabled="${selectable ? "false" : "true"}"
+            title="${escapeHtml(statusText)}"
+          >
+            <span class="status-dot ${dotClass}" aria-hidden="true"></span>
+            <span class="aoi-card-text">
+              <strong>${escapeHtml(numberText)} ${escapeHtml(name)}</strong>
+              <small>${escapeHtml(productLabel)} · ${escapeHtml(statusText)}</small>
+            </span>
+          </button>
+          ${selected ? renderInlineProductOptionsV4(aoi) : ""}
+        </div>
+      `;
+    })
+    .join("");
+}
+
+/* Final flat AOI list status-class override: end */
