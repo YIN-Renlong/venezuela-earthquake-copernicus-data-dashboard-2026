@@ -6,6 +6,12 @@ Unofficial public dashboard for the 2026 Venezuela earthquake response context, 
 
 
 
+![Dashboard Screenshot](assets/img2.jpeg)
+
+
+
+
+
 ## Purpose
 
 This project translates public Copernicus EMS Rapid Mapping data into a lightweight, mobile-friendly, multilingual web dashboard.
