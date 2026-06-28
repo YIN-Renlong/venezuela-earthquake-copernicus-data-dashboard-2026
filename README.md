@@ -2443,7 +2443,119 @@ The current implementation is significantly more faithful to the Copernicus Prod
 
 
 
+### **38. Appendix: mobile responsive sidebar and legend update**
 
+After the main 28 June product-scoped and COG imagery updates, an additional responsive/mobile usability issue was discovered.
+
+On small screens, the dashboard uses:
+
+    mobile topbar menu button
+    slide-in sidebar
+    map legend overlay
+
+During testing on mobile width, opening the sidebar caused two problems:
+
+    1. There was no obvious close button inside the opened sidebar.
+       Users could close it by tapping the menu button again or pressing Escape on desktop,
+       but this was not discoverable on mobile.
+    
+    2. The map legend remained visible while the sidebar was open.
+       Because both the sidebar and legend are overlay panels, the legend could cover
+       important sidebar content and make the AOI list difficult to read.
+
+This was fixed with a small responsive patch.
+
+---
+
+#### **38.1 Mobile sidebar close button**
+
+A close button was added directly inside the sidebar DOM:
+
+    <button id="sidebar-close" class="sidebar-close-btn">×</button>
+
+The button is hidden on desktop and shown only in the mobile layout:
+
+    @media (max-width: 820px)
+
+The close button uses:
+
+    fixed positioning
+    circular shape
+    dark translucent background
+    border and blur consistent with the existing UI
+    high z-index above sidebar content
+    focus-visible outline for keyboard accessibility
+
+The close button calls the existing sidebar close behavior:
+
+    closeMobileSidebar()
+
+The function now also updates ARIA state.
+
+---
+
+#### **38.2 Sidebar ARIA state synchronization**
+
+A helper function was added:
+
+    syncMobileSidebarA11yV13()
+
+It keeps the menu button and close button state synchronized:
+
+    aria-expanded="true"
+      when body.sidebar-open is active
+    
+    aria-expanded="false"
+      when sidebar is closed
+
+The mobile menu button also receives:
+
+    aria-controls="sidebar"
+
+This improves accessibility and makes the open/closed sidebar state more explicit to assistive technologies.
+
+The Escape key remains supported and now also refreshes the ARIA state after closing.
+
+---
+
+#### **38.3 Hiding the map legend while mobile sidebar is open**
+
+A CSS rule was added:
+
+    @media (max-width: 820px) {
+      body.sidebar-open .map-legend {
+        display: none !important;
+      }
+    }
+
+This prevents the map legend from blocking sidebar content on small screens.
+
+The behavior is intentionally mobile-only. On desktop, the sidebar is always visible and the map legend remains available.
+
+---
+
+#### **38.4 Sidebar spacing adjustment**
+
+Because the close button sits near the top of the mobile sidebar, the sidebar top padding was increased in mobile mode:
+
+    padding-top: max(58px, calc(22px + env(safe-area-inset-top)));
+
+This prevents the close button from overlapping the title area and also respects iOS safe-area insets.
+
+---
+
+#### **38.5 Result**
+
+After this responsive patch:
+
+    opening the mobile menu shows a clear close button
+    users can close the sidebar directly from inside the sidebar
+    the map legend automatically disappears while the sidebar is open
+    sidebar text and AOI list are no longer blocked by the legend
+    ARIA expanded state is kept in sync for accessibility
+    desktop behavior remains unchanged
+
+This update improves the mobile usability of the dashboard without changing the product/layer/data architecture.
 
 
 
