@@ -1641,3 +1641,70 @@ button.aoi-card:hover {
 }
 
 /* Basemap controls in legend and footer note styles: end */
+
+/* Client-side COG source imagery styles: start */
+
+.cog-legend-item {
+  display: grid;
+  gap: 6px;
+}
+
+.cog-toggle-row span:last-child {
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+
+.cog-file-link {
+  display: inline-flex;
+  align-items: center;
+  margin-left: 6px;
+  padding: 1px 6px;
+  border: 1px solid rgba(140, 199, 255, 0.35);
+  border-radius: 999px;
+  color: #a9d3ff;
+  font-size: 0.68rem;
+  font-weight: 900;
+  line-height: 1.35;
+  text-decoration: none;
+  vertical-align: middle;
+}
+
+.cog-file-link:hover {
+  background: rgba(140, 199, 255, 0.12);
+  text-decoration: none;
+}
+
+.cog-opacity-row {
+  display: grid;
+  grid-template-columns: auto minmax(80px, 1fr) 42px;
+  gap: 8px;
+  align-items: center;
+  padding: 2px 0 5px 61px;
+  color: var(--muted);
+  font-size: 0.74rem;
+  line-height: 1.2;
+}
+
+.cog-opacity-row input[type="range"] {
+  width: 100%;
+  accent-color: var(--yellow);
+}
+
+.cog-opacity-row strong {
+  color: #d8dee9;
+  font-size: 0.74rem;
+  text-align: right;
+}
+
+@media (max-width: 520px) {
+  .cog-opacity-row {
+    grid-template-columns: 1fr;
+    padding-left: 27px;
+  }
+
+  .cog-opacity-row strong {
+    text-align: left;
+  }
+}
+
+/* Client-side COG source imagery styles: end */

@@ -516,6 +516,13 @@ const supplementalTranslations = {
     transportationArea: "Área de transporte",
     airfieldAndHeliportDamaged: "Aeródromo y helipuerto, dañado",
     sourceImagery: "Imagen fuente de Copernicus",
+    sourceImageryLoadingTitle: "Cargando imagen fuente de Copernicus",
+    sourceImageryLoadingText: "Preparando teselas de la imagen oficial. La imagen se carga bajo demanda y puede tardar en conexiones lentas.",
+    sourceImageryLoadedTitle: "Imagen fuente cargada",
+    sourceImageryLoadedText: "La imagen fuente de Copernicus está visible en el mapa.",
+    sourceImageryErrorTitle: "No se pudo cargar la imagen fuente",
+    sourceImageryErrorText: "El navegador no pudo leer esta imagen COG. Puede abrir el archivo TIFF desde el enlace de la leyenda.",
+    sourceImageOnly: "Imagen fuente disponible",
     noDisplayableLayers: "No hay capas vectoriales visibles para el producto seleccionado.",
     groundMovementGrading: "Movimiento del terreno",
     groundMovementM: "Movimiento del terreno (m)",
@@ -563,6 +570,13 @@ const supplementalTranslations = {
     transportationArea: "Transportation Area",
     airfieldAndHeliportDamaged: "Airfield and Heliport, Damaged",
     sourceImagery: "Copernicus source imagery",
+    sourceImageryLoadingTitle: "Loading Copernicus source image",
+    sourceImageryLoadingText: "Preparing official image tiles. The image loads on demand and may take time on slower connections.",
+    sourceImageryLoadedTitle: "Source image loaded",
+    sourceImageryLoadedText: "The Copernicus source image is visible on the map.",
+    sourceImageryErrorTitle: "Could not load source image",
+    sourceImageryErrorText: "The browser could not read this COG image. You can open the TIFF file from the legend link.",
+    sourceImageOnly: "Source image available",
     noDisplayableLayers: "No visible vector layers are available for the selected product.",
     groundMovementGrading: "Ground Movement",
     groundMovementM: "Ground Movement (m)",
@@ -610,6 +624,13 @@ const supplementalTranslations = {
     transportationArea: "Area di trasporto",
     airfieldAndHeliportDamaged: "Aeroporto ed eliporto, danneggiato",
     sourceImagery: "Immagine sorgente Copernicus",
+    sourceImageryLoadingTitle: "Caricamento immagine sorgente Copernicus",
+    sourceImageryLoadingText: "Preparazione delle tile dell’immagine ufficiale. L’immagine viene caricata su richiesta e può richiedere tempo su connessioni lente.",
+    sourceImageryLoadedTitle: "Immagine sorgente caricata",
+    sourceImageryLoadedText: "L’immagine sorgente Copernicus è visibile sulla mappa.",
+    sourceImageryErrorTitle: "Impossibile caricare l’immagine sorgente",
+    sourceImageryErrorText: "Il browser non ha potuto leggere questa immagine COG. Puoi aprire il file TIFF dal link nella legenda.",
+    sourceImageOnly: "Immagine sorgente disponibile",
     noDisplayableLayers: "Non sono disponibili layer vettoriali visibili per il prodotto selezionato.",
     groundMovementGrading: "Movimento del suolo",
     groundMovementM: "Movimento del suolo (m)",
@@ -657,6 +678,13 @@ const supplementalTranslations = {
     transportationArea: "交通设施面",
     airfieldAndHeliportDamaged: "机场与直升机场，受损",
     sourceImagery: "Copernicus 源影像",
+    sourceImageryLoadingTitle: "正在加载 Copernicus 源影像",
+    sourceImageryLoadingText: "正在准备官方影像瓦片。影像按需加载，在较慢网络下可能需要一些时间。",
+    sourceImageryLoadedTitle: "源影像已加载",
+    sourceImageryLoadedText: "Copernicus 源影像已显示在地图上。",
+    sourceImageryErrorTitle: "无法加载源影像",
+    sourceImageryErrorText: "浏览器无法读取该 COG 影像。您仍可通过图例中的链接打开 TIFF 文件。",
+    sourceImageOnly: "源影像可用",
     noDisplayableLayers: "所选产品没有可显示的矢量图层。",
     groundMovementGrading: "地表位移",
     groundMovementM: "地表位移（米）",
@@ -7479,3 +7507,1141 @@ function renderDynamicLegend(info = latestSelectedProductInfo) {
 }
 
 /* Basemap controls in map legend override: end */
+
+/* Client-side COG source imagery rendering: start */
+
+const COG_RENDERER_SCRIPT_URLS_V8 = {
+  geotiff: "https://cdn.jsdelivr.net/npm/geotiff@2/dist-browser/geotiff.js",
+  proj4: "https://cdn.jsdelivr.net/npm/proj4@2/dist/proj4.js",
+};
+
+const COG_SCRIPT_PROMISES_V8 = new Map();
+const COG_META_CACHE_V8 = new Map();
+const COG_TILE_CACHE_V8 = new Map();
+const COG_STATE_V8 = new Map();
+const COG_CATALOG_V8 = new Map();
+
+let COG_PROTOCOL_REGISTERED_V8 = false;
+let COG_TRANSPARENT_TILE_PROMISE_V8 = null;
+
+function productHasCogLayersV8(product) {
+  return Array.isArray(product?.layers) && product.layers.some((layer) => {
+    const name = String(layer?.name || "");
+    return String(layer?.format || "").toLowerCase() === "cog" || /\.tif(f)?$/i.test(name);
+  });
+}
+
+function productHasUsefulLayers(product) {
+  return productLayerKeys(product).size > 0 || productHasCogLayersV8(product);
+}
+
+function productHasVectorLayersV8(product) {
+  return productLayerKeys(product).size > 0;
+}
+
+function getAoiCardStatusText(product, available) {
+  const hasVector = productHasVectorLayersV8(product);
+  const hasCog = productHasCogLayersV8(product);
+
+  if (available && hasVector) {
+    return t("aoiAvailable");
+  }
+
+  if (available && hasCog) {
+    return t("sourceImageOnly");
+  }
+
+  const status = product?.version?.statusCode || "";
+  let base = t("aoiProcessing");
+
+  if (status === "I") {
+    base = t("aoiInProgress");
+  } else if (status === "W") {
+    base = t("aoiPlanned");
+  } else if (status === "N") {
+    base = t("aoiNotProduced");
+  }
+
+  const time =
+    product?.expectedDelivery ||
+    product?.version?.deliveryTime ||
+    getLatestAcquisitionTime(product || {});
+
+  if (time) {
+    return `${base} · ${formatDateTime(time)}`;
+  }
+
+  return base;
+}
+
+function loadScriptOnceV8(url) {
+  if (COG_SCRIPT_PROMISES_V8.has(url)) {
+    return COG_SCRIPT_PROMISES_V8.get(url);
+  }
+
+  const promise = new Promise((resolve, reject) => {
+    const existing = document.querySelector(`script[src="${url}"]`);
+    if (existing) {
+      if (existing.dataset.loaded === "1") {
+        resolve();
+      } else {
+        existing.addEventListener("load", resolve, { once: true });
+        existing.addEventListener("error", reject, { once: true });
+      }
+      return;
+    }
+
+    const script = document.createElement("script");
+    script.src = url;
+    script.async = true;
+    script.crossOrigin = "anonymous";
+    script.onload = () => {
+      script.dataset.loaded = "1";
+      resolve();
+    };
+    script.onerror = () => reject(new Error(`Could not load script: ${url}`));
+    document.head.appendChild(script);
+  });
+
+  COG_SCRIPT_PROMISES_V8.set(url, promise);
+  return promise;
+}
+
+async function ensureCogRenderingLibrariesV8() {
+  await loadScriptOnceV8(COG_RENDERER_SCRIPT_URLS_V8.geotiff);
+
+  if (!window.GeoTIFF) {
+    throw new Error("GeoTIFF library did not expose window.GeoTIFF.");
+  }
+
+  await loadScriptOnceV8(COG_RENDERER_SCRIPT_URLS_V8.proj4);
+
+  if (!window.proj4) {
+    throw new Error("proj4 library did not expose window.proj4.");
+  }
+}
+
+function ensureProjDefinitionV8(epsg) {
+  const code = Number(epsg);
+
+  if (!Number.isFinite(code)) {
+    return;
+  }
+
+  const name = `EPSG:${code}`;
+
+  if (code === 4326) {
+    window.proj4.defs(name, "+proj=longlat +datum=WGS84 +no_defs +type=crs");
+    return;
+  }
+
+  if (code === 3857 || code === 900913) {
+    window.proj4.defs(name, "+proj=merc +a=6378137 +b=6378137 +lat_ts=0 +lon_0=0 +x_0=0 +y_0=0 +k=1 +units=m +nadgrids=@null +wktext +no_defs +type=crs");
+    return;
+  }
+
+  if (code >= 32601 && code <= 32660) {
+    const zone = code - 32600;
+    window.proj4.defs(name, `+proj=utm +zone=${zone} +datum=WGS84 +units=m +no_defs +type=crs`);
+    return;
+  }
+
+  if (code >= 32701 && code <= 32760) {
+    const zone = code - 32700;
+    window.proj4.defs(name, `+proj=utm +zone=${zone} +south +datum=WGS84 +units=m +no_defs +type=crs`);
+  }
+}
+
+function detectCogEpsgV8(image, bbox) {
+  let keys = {};
+
+  try {
+    keys = image.getGeoKeys() || {};
+  } catch {
+    keys = {};
+  }
+
+  const projected = Number(keys.ProjectedCSTypeGeoKey);
+  const geographic = Number(keys.GeographicTypeGeoKey);
+
+  if (Number.isFinite(projected) && projected > 0 && projected !== 32767) {
+    return projected;
+  }
+
+  if (Number.isFinite(geographic) && geographic > 0 && geographic !== 32767) {
+    return geographic;
+  }
+
+  const citation = [
+    keys.PCSCitationGeoKey,
+    keys.GTCitationGeoKey,
+    keys.GeogCitationGeoKey,
+  ].filter(Boolean).join(" ");
+
+  const epsgMatch = String(citation).match(/EPSG[:\s]*(\d{4,5})/i);
+  if (epsgMatch) {
+    return Number(epsgMatch[1]);
+  }
+
+  const [minX, minY, maxX, maxY] = bbox || [];
+  const looksLonLat =
+    [minX, maxX].every((value) => Number.isFinite(value) && value >= -180 && value <= 180) &&
+    [minY, maxY].every((value) => Number.isFinite(value) && value >= -90 && value <= 90);
+
+  if (looksLonLat) {
+    return 4326;
+  }
+
+  const looksWebMercator =
+    [minX, maxX].some((value) => Math.abs(Number(value)) > 1000000) &&
+    [minY, maxY].some((value) => Math.abs(Number(value)) > 1000000);
+
+  if (looksWebMercator) {
+    return 3857;
+  }
+
+  // EMSR884 Venezuela products are generally WGS84 / UTM 19N if no EPSG is exposed.
+  return 32619;
+}
+
+function transformImageToLonLatV8(meta, x, y) {
+  const epsg = Number(meta.epsg);
+
+  if (epsg === 4326) {
+    return [x, y];
+  }
+
+  if (!window.proj4) {
+    return [NaN, NaN];
+  }
+
+  try {
+    return window.proj4(`EPSG:${epsg}`, "EPSG:4326", [x, y]);
+  } catch {
+    return [NaN, NaN];
+  }
+}
+
+function transformLonLatToImageV8(meta, lon, lat) {
+  const epsg = Number(meta.epsg);
+
+  if (epsg === 4326) {
+    return [lon, lat];
+  }
+
+  if (!window.proj4) {
+    return [NaN, NaN];
+  }
+
+  try {
+    return window.proj4("EPSG:4326", `EPSG:${epsg}`, [lon, lat]);
+  } catch {
+    return [NaN, NaN];
+  }
+}
+
+function clampBoundsV8(bounds) {
+  const [west, south, east, north] = bounds;
+
+  return [
+    Math.max(-180, Math.min(180, west)),
+    Math.max(-90, Math.min(90, south)),
+    Math.max(-180, Math.min(180, east)),
+    Math.max(-90, Math.min(90, north)),
+  ];
+}
+
+async function getCogMetaV8(url) {
+  const requestUrl = String(url || "").trim();
+
+  if (!requestUrl) {
+    throw new Error("COG URL is empty.");
+  }
+
+  if (COG_META_CACHE_V8.has(requestUrl)) {
+    return COG_META_CACHE_V8.get(requestUrl);
+  }
+
+  const task = (async () => {
+    await ensureCogRenderingLibrariesV8();
+
+    const tiff = await window.GeoTIFF.fromUrl(requestUrl);
+    const image = await tiff.getImage();
+
+    const bbox = image.getBoundingBox();
+    const epsg = detectCogEpsgV8(image, bbox);
+
+    ensureProjDefinitionV8(4326);
+    ensureProjDefinitionV8(3857);
+    ensureProjDefinitionV8(epsg);
+
+    const corners = [
+      [bbox[0], bbox[1]],
+      [bbox[0], bbox[3]],
+      [bbox[2], bbox[1]],
+      [bbox[2], bbox[3]],
+    ]
+      .map(([x, y]) => transformImageToLonLatV8({ epsg }, x, y))
+      .filter(([lon, lat]) => Number.isFinite(lon) && Number.isFinite(lat));
+
+    let wgs84Bounds = null;
+
+    if (corners.length) {
+      const lons = corners.map((item) => item[0]);
+      const lats = corners.map((item) => item[1]);
+      wgs84Bounds = clampBoundsV8([
+        Math.min(...lons),
+        Math.min(...lats),
+        Math.max(...lons),
+        Math.max(...lats),
+      ]);
+    }
+
+    const fileDirectory = image.fileDirectory || {};
+    const bitsPerSample = Array.isArray(fileDirectory.BitsPerSample)
+      ? fileDirectory.BitsPerSample
+      : [8];
+
+    const samplesPerPixel =
+      typeof image.getSamplesPerPixel === "function"
+        ? image.getSamplesPerPixel()
+        : Number(fileDirectory.SamplesPerPixel || bitsPerSample.length || 1);
+
+    return {
+      url: requestUrl,
+      tiff,
+      image,
+      bbox,
+      epsg,
+      wgs84Bounds,
+      width: image.getWidth(),
+      height: image.getHeight(),
+      samplesPerPixel,
+      bitsPerSample,
+      noData: typeof image.getGDALNoData === "function" ? image.getGDALNoData() : null,
+    };
+  })();
+
+  COG_META_CACHE_V8.set(requestUrl, task);
+  return task;
+}
+
+function tileXToLonV8(x, z) {
+  return (x / Math.pow(2, z)) * 360 - 180;
+}
+
+function tileYToLatV8(y, z) {
+  const n = Math.PI - (2 * Math.PI * y) / Math.pow(2, z);
+  return (Math.atan(Math.sinh(n)) * 180) / Math.PI;
+}
+
+function getTileLonLatBoundsV8(z, x, y) {
+  const west = tileXToLonV8(x, z);
+  const east = tileXToLonV8(x + 1, z);
+  const north = tileYToLatV8(y, z);
+  const south = tileYToLatV8(y + 1, z);
+
+  return [west, south, east, north];
+}
+
+function boundsIntersectV8(a, b) {
+  return !(a[2] <= b[0] || a[0] >= b[2] || a[3] <= b[1] || a[1] >= b[3]);
+}
+
+async function getTransparentPngTileV8() {
+  if (COG_TRANSPARENT_TILE_PROMISE_V8) {
+    return COG_TRANSPARENT_TILE_PROMISE_V8;
+  }
+
+  COG_TRANSPARENT_TILE_PROMISE_V8 = new Promise((resolve) => {
+    const canvas = document.createElement("canvas");
+    canvas.width = 256;
+    canvas.height = 256;
+    canvas.toBlob(async (blob) => {
+      resolve(await blob.arrayBuffer());
+    }, "image/png");
+  });
+
+  return COG_TRANSPARENT_TILE_PROMISE_V8;
+}
+
+function scaleCogSampleToByteV8(value, bits = 8) {
+  const number = Number(value);
+
+  if (!Number.isFinite(number)) {
+    return 0;
+  }
+
+  if (bits <= 8) {
+    return Math.max(0, Math.min(255, Math.round(number)));
+  }
+
+  if (bits <= 12) {
+    return Math.max(0, Math.min(255, Math.round((number / 4095) * 255)));
+  }
+
+  if (bits <= 16) {
+    return Math.max(0, Math.min(255, Math.round((number / 65535) * 255)));
+  }
+
+  return Math.max(0, Math.min(255, Math.round(number)));
+}
+
+function buildCogTilePngV8(rasters, meta, tileSize = 256) {
+  const sampleCount = Math.min(meta.samplesPerPixel || rasters.length || 1, rasters.length || 1);
+  const first = rasters[0];
+
+  if (!first) {
+    return getTransparentPngTileV8();
+  }
+
+  const canvas = document.createElement("canvas");
+  canvas.width = tileSize;
+  canvas.height = tileSize;
+
+  const ctx = canvas.getContext("2d");
+  const imageData = ctx.createImageData(tileSize, tileSize);
+  const data = imageData.data;
+
+  const bits = meta.bitsPerSample || [8];
+  const noData = meta.noData;
+  const hasNoData = noData !== null && noData !== undefined && String(noData) !== "";
+
+  for (let index = 0; index < tileSize * tileSize; index += 1) {
+    let r;
+    let g;
+    let b;
+    let a = 255;
+
+    if (sampleCount >= 3) {
+      const rRaw = rasters[0][index];
+      const gRaw = rasters[1][index];
+      const bRaw = rasters[2][index];
+
+      r = scaleCogSampleToByteV8(rRaw, bits[0] || bits[0] || 8);
+      g = scaleCogSampleToByteV8(gRaw, bits[1] || bits[0] || 8);
+      b = scaleCogSampleToByteV8(bRaw, bits[2] || bits[0] || 8);
+
+      if (
+        hasNoData &&
+        String(rRaw) === String(noData) &&
+        String(gRaw) === String(noData) &&
+        String(bRaw) === String(noData)
+      ) {
+        a = 0;
+      }
+
+      if (sampleCount >= 4 && rasters[3]) {
+        a = scaleCogSampleToByteV8(rasters[3][index], bits[3] || 8);
+      }
+    } else {
+      const value = rasters[0][index];
+      const gray = scaleCogSampleToByteV8(value, bits[0] || 8);
+      r = gray;
+      g = gray;
+      b = gray;
+
+      if (hasNoData && String(value) === String(noData)) {
+        a = 0;
+      }
+    }
+
+    const offset = index * 4;
+    data[offset] = r;
+    data[offset + 1] = g;
+    data[offset + 2] = b;
+    data[offset + 3] = a;
+  }
+
+  ctx.putImageData(imageData, 0, 0);
+
+  return new Promise((resolve, reject) => {
+    canvas.toBlob(async (blob) => {
+      if (!blob) {
+        reject(new Error("Could not encode COG tile as PNG."));
+        return;
+      }
+
+      resolve(await blob.arrayBuffer());
+    }, "image/png");
+  });
+}
+
+async function renderCogTileV8(url, z, x, y) {
+  const tileCacheKey = `${url}|${z}|${x}|${y}`;
+
+  if (COG_TILE_CACHE_V8.has(tileCacheKey)) {
+    return COG_TILE_CACHE_V8.get(tileCacheKey);
+  }
+
+  const task = (async () => {
+    const meta = await getCogMetaV8(url);
+
+    if (!meta.wgs84Bounds) {
+      return getTransparentPngTileV8();
+    }
+
+    const tileLonLatBounds = getTileLonLatBoundsV8(z, x, y);
+
+    if (!boundsIntersectV8(tileLonLatBounds, meta.wgs84Bounds)) {
+      return getTransparentPngTileV8();
+    }
+
+    const [west, south, east, north] = tileLonLatBounds;
+
+    const imageCorners = [
+      transformLonLatToImageV8(meta, west, south),
+      transformLonLatToImageV8(meta, west, north),
+      transformLonLatToImageV8(meta, east, south),
+      transformLonLatToImageV8(meta, east, north),
+    ].filter(([px, py]) => Number.isFinite(px) && Number.isFinite(py));
+
+    if (!imageCorners.length) {
+      return getTransparentPngTileV8();
+    }
+
+    const xs = imageCorners.map((item) => item[0]);
+    const ys = imageCorners.map((item) => item[1]);
+
+    const bbox = [
+      Math.min(...xs),
+      Math.min(...ys),
+      Math.max(...xs),
+      Math.max(...ys),
+    ];
+
+    if (!boundsIntersectV8(bbox, meta.bbox)) {
+      return getTransparentPngTileV8();
+    }
+
+    const samples =
+      meta.samplesPerPixel >= 3
+        ? meta.samplesPerPixel >= 4
+          ? [0, 1, 2, 3]
+          : [0, 1, 2]
+        : [0];
+
+    let rasters;
+
+    try {
+      rasters = await meta.tiff.readRasters({
+        bbox,
+        width: 256,
+        height: 256,
+        samples,
+        interleave: false,
+      });
+    } catch (error) {
+      console.warn("COG tile read failed, returning transparent tile:", error);
+      return getTransparentPngTileV8();
+    }
+
+    return buildCogTilePngV8(rasters, meta, 256);
+  })();
+
+  COG_TILE_CACHE_V8.set(tileCacheKey, task);
+
+  // Keep memory bounded.
+  if (COG_TILE_CACHE_V8.size > 384) {
+    const firstKey = COG_TILE_CACHE_V8.keys().next().value;
+    COG_TILE_CACHE_V8.delete(firstKey);
+  }
+
+  return task;
+}
+
+function parseCogProtocolUrlV8(rawUrl) {
+  const parsed = new URL(rawUrl);
+  const parts = parsed.pathname.split("/").filter(Boolean);
+
+  const z = Number(parts[0]);
+  const x = Number(parts[1]);
+  const yPart = String(parts[2] || "").replace(/\.(png|jpg|jpeg)$/i, "");
+  const y = Number(yPart);
+  const url = parsed.searchParams.get("url") || "";
+
+  if (!Number.isFinite(z) || !Number.isFinite(x) || !Number.isFinite(y) || !url) {
+    throw new Error(`Invalid COG tile URL: ${rawUrl}`);
+  }
+
+  return {
+    url,
+    z,
+    x,
+    y,
+  };
+}
+
+async function ensureCogProtocolRegisteredV8() {
+  await ensureCogRenderingLibrariesV8();
+
+  if (COG_PROTOCOL_REGISTERED_V8) {
+    return;
+  }
+
+  if (!window.maplibregl?.addProtocol) {
+    throw new Error("MapLibre addProtocol is not available.");
+  }
+
+  window.maplibregl.addProtocol("emsrcog", async (params) => {
+    const parsed = parseCogProtocolUrlV8(params.url);
+    const data = await renderCogTileV8(parsed.url, parsed.z, parsed.x, parsed.y);
+
+    return {
+      data,
+      cacheControl: "max-age=3600",
+    };
+  });
+
+  COG_PROTOCOL_REGISTERED_V8 = true;
+}
+
+function hashStringV8(value) {
+  let hash = 0;
+  const text = String(value || "");
+
+  for (let i = 0; i < text.length; i += 1) {
+    hash = ((hash << 5) - hash + text.charCodeAt(i)) | 0;
+  }
+
+  return Math.abs(hash).toString(36);
+}
+
+function cogItemKeyV8(item) {
+  return `${safeMapIdV4(item?.productKey || "default")}-${hashStringV8(item?.url || item?.label || "")}`;
+}
+
+function getCogLayerStateV8(key) {
+  if (!COG_STATE_V8.has(key)) {
+    COG_STATE_V8.set(key, {
+      visible: false,
+      opacity: 0.75,
+    });
+  }
+
+  return COG_STATE_V8.get(key);
+}
+
+function getCogLayerIdsV8(key) {
+  const safeKey = safeMapIdV4(key);
+
+  return {
+    sourceId: `copernicus-source-image-${safeKey}`,
+    layerId: `copernicus-source-image-layer-${safeKey}`,
+  };
+}
+
+function findFirstOverlayLayerBeforeIdV8() {
+  const style = map?.getStyle?.();
+
+  if (!style?.layers) {
+    return map?.getLayer?.(BASE_LAYER_IDS.labels) ? BASE_LAYER_IDS.labels : undefined;
+  }
+
+  const overlayIds = new Set([
+    ...Array.from(DYNAMIC_DATA_LAYER_IDS_V4 || []),
+    ...DATA_LAYER_IDS,
+  ]);
+
+  for (const layer of style.layers) {
+    if (!layer?.id) continue;
+    if (String(layer.id).startsWith("copernicus-source-image-layer-")) continue;
+
+    if (overlayIds.has(layer.id)) {
+      return layer.id;
+    }
+  }
+
+  return map?.getLayer?.(BASE_LAYER_IDS.labels) ? BASE_LAYER_IDS.labels : undefined;
+}
+
+async function addCogRasterLayerV8(item) {
+  if (!mapReady || !map || !item?.url) {
+    return;
+  }
+
+  const key = cogItemKeyV8(item);
+  const state = getCogLayerStateV8(key);
+  const ids = getCogLayerIdsV8(key);
+
+  setStatus(
+    "loading",
+    t("sourceImageryLoadingTitle"),
+    `${t("sourceImageryLoadingText")} ${item.label || ""}`,
+    false
+  );
+
+  showStatusProgressV4(null, "");
+
+  try {
+    await ensureCogProtocolRegisteredV8();
+
+    const meta = await getCogMetaV8(item.url);
+
+    if (!map.getSource(ids.sourceId)) {
+      const tileUrl = `emsrcog://tile/{z}/{x}/{y}.png?url=${encodeURIComponent(item.url)}`;
+      const sourceDefinition = {
+        type: "raster",
+        tiles: [tileUrl],
+        tileSize: 256,
+        minzoom: 0,
+        maxzoom: 22,
+        attribution: "Copernicus EMS Rapid Mapping",
+      };
+
+      if (Array.isArray(meta.wgs84Bounds) && meta.wgs84Bounds.length === 4) {
+        sourceDefinition.bounds = meta.wgs84Bounds;
+      }
+
+      map.addSource(ids.sourceId, sourceDefinition);
+      DYNAMIC_SOURCE_IDS_V4.add(ids.sourceId);
+    }
+
+    if (!map.getLayer(ids.layerId)) {
+      map.addLayer(
+        {
+          id: ids.layerId,
+          type: "raster",
+          source: ids.sourceId,
+          paint: {
+            "raster-opacity": state.opacity,
+            "raster-fade-duration": 120,
+          },
+        },
+        findFirstOverlayLayerBeforeIdV8()
+      );
+
+      DYNAMIC_DATA_LAYER_IDS_V4.add(ids.layerId);
+    }
+
+    setLayerVisibility(ids.layerId, true);
+    map.setPaintProperty(ids.layerId, "raster-opacity", state.opacity);
+    moveLabelsToTop();
+
+    map.once("idle", () => {
+      if (getCogLayerStateV8(key).visible && map.getLayer(ids.layerId)) {
+        setStatus(
+          "success",
+          t("sourceImageryLoadedTitle"),
+          `${item.label || ""} — ${t("sourceImageryLoadedText")}`,
+          false
+        );
+
+        window.setTimeout(() => {
+          if (els.status?.classList.contains("success")) {
+            els.status.classList.add("hidden");
+          }
+        }, 3500);
+      }
+    });
+  } catch (error) {
+    console.error("COG source image load failed:", error);
+
+    state.visible = false;
+
+    setStatus(
+      "error",
+      t("sourceImageryErrorTitle"),
+      `${t("sourceImageryErrorText")}${error.message ? ` (${error.message})` : ""}`,
+      false
+    );
+
+    renderDynamicLegend(latestSelectedProductInfo);
+  }
+}
+
+function removeCogRasterLayerV8(itemOrKey) {
+  const key = typeof itemOrKey === "string" ? itemOrKey : cogItemKeyV8(itemOrKey);
+  const ids = getCogLayerIdsV8(key);
+
+  if (map?.getLayer?.(ids.layerId)) {
+    map.removeLayer(ids.layerId);
+  }
+
+  if (map?.getSource?.(ids.sourceId)) {
+    map.removeSource(ids.sourceId);
+  }
+
+  DYNAMIC_DATA_LAYER_IDS_V4.delete(ids.layerId);
+  DYNAMIC_SOURCE_IDS_V4.delete(ids.sourceId);
+}
+
+function setCogOpacityV8(key, opacity) {
+  const state = getCogLayerStateV8(key);
+  state.opacity = Math.max(0, Math.min(1, Number(opacity) || 0));
+
+  const ids = getCogLayerIdsV8(key);
+
+  if (map?.getLayer?.(ids.layerId)) {
+    map.setPaintProperty(ids.layerId, "raster-opacity", state.opacity);
+  }
+
+  const valueNode = document.querySelector(`[data-cog-opacity-value="${CSS.escape(key)}"]`);
+  if (valueNode) {
+    valueNode.textContent = `${Math.round(state.opacity * 100)}%`;
+  }
+}
+
+async function syncActiveCogLayersForCurrentInfoV8(info = latestSelectedProductInfo) {
+  const activeKeys = new Set();
+
+  (Array.isArray(info?.cogLayers) ? info.cogLayers : []).forEach((item) => {
+    const key = cogItemKeyV8(item);
+    COG_CATALOG_V8.set(key, item);
+
+    if (getCogLayerStateV8(key).visible) {
+      activeKeys.add(key);
+      addCogRasterLayerV8(item);
+    }
+  });
+
+  // Remove COG map layers whose products/images are no longer selected.
+  for (const [key, state] of COG_STATE_V8.entries()) {
+    if (state.visible && !activeKeys.has(key)) {
+      const ids = getCogLayerIdsV8(key);
+
+      if (map?.getLayer?.(ids.layerId) || map?.getSource?.(ids.sourceId)) {
+        removeCogRasterLayerV8(key);
+      }
+    }
+  }
+}
+
+function renderSourceImageryLegendSectionV4(info, productKey = "") {
+  const cogs = (Array.isArray(info?.cogLayers) ? info.cogLayers : [])
+    .filter((item) => !productKey || String(item.productKey) === String(productKey));
+
+  if (!cogs.length) {
+    return "";
+  }
+
+  const rows = cogs
+    .map((item) => {
+      const key = cogItemKeyV8(item);
+      COG_CATALOG_V8.set(key, item);
+
+      const state = getCogLayerStateV8(key);
+      const opacityPercent = Math.round(state.opacity * 100);
+
+      return `
+        <div class="cog-legend-item">
+          <label class="map-legend-row legend-toggle cog-toggle-row">
+            <input
+              class="layer-checkbox"
+              type="checkbox"
+              data-cog-toggle="${escapeHtml(key)}"
+              ${state.visible ? "checked" : ""}
+            />
+            <span class="image-swatch"></span>
+            <span>
+              ${escapeHtml(item.label)}
+              <a
+                class="image-legend-link cog-file-link"
+                href="${escapeHtml(item.url)}"
+                target="_blank"
+                rel="noopener noreferrer"
+                title="Open TIFF"
+              >TIFF</a>
+            </span>
+          </label>
+
+          <label class="cog-opacity-row ${state.visible ? "" : "hidden"}">
+            <span>Opacity</span>
+            <input
+              type="range"
+              min="0"
+              max="100"
+              step="5"
+              value="${opacityPercent}"
+              data-cog-opacity="${escapeHtml(key)}"
+            />
+            <strong data-cog-opacity-value="${escapeHtml(key)}">${opacityPercent}%</strong>
+          </label>
+        </div>
+      `;
+    })
+    .join("");
+
+  return renderLegendSectionV4(t("sourceImagery"), rows);
+}
+
+function setupLayerToggleEvents() {
+  const legend = document.getElementById("map-legend");
+
+  if (!legend || legend.dataset.toggleDelegatedV8 === "1") {
+    return;
+  }
+
+  legend.dataset.toggleDelegatedV8 = "1";
+
+  legend.addEventListener("click", (event) => {
+    const basemapButton = event.target.closest("[data-legend-basemap]");
+
+    if (!basemapButton) {
+      return;
+    }
+
+    const mode = basemapButton.dataset.legendBasemap || "satellite";
+    setBasemap(mode);
+
+    if (latestSelectedProductInfo && typeof renderDynamicLegend === "function") {
+      renderDynamicLegend(latestSelectedProductInfo);
+    }
+  });
+
+  legend.addEventListener("input", (event) => {
+    const opacityInput = event.target.closest("[data-cog-opacity]");
+
+    if (!opacityInput) {
+      return;
+    }
+
+    const key = String(opacityInput.dataset.cogOpacity || "").trim();
+    const opacity = Number(opacityInput.value) / 100;
+
+    setCogOpacityV8(key, opacity);
+  });
+
+  legend.addEventListener("change", async (event) => {
+    const cogInput = event.target.closest("[data-cog-toggle]");
+
+    if (cogInput) {
+      const key = String(cogInput.dataset.cogToggle || "").trim();
+      const item = COG_CATALOG_V8.get(key);
+      const state = getCogLayerStateV8(key);
+
+      state.visible = Boolean(cogInput.checked);
+
+      renderDynamicLegend(latestSelectedProductInfo);
+
+      if (state.visible && item) {
+        await addCogRasterLayerV8(item);
+      } else {
+        removeCogRasterLayerV8(key);
+      }
+
+      return;
+    }
+
+    const labelsInput = event.target.closest("[data-basemap-labels-toggle]");
+
+    if (labelsInput) {
+      satelliteLabelsEnabled = Boolean(labelsInput.checked);
+
+      if (els.labelsToggle) {
+        els.labelsToggle.checked = satelliteLabelsEnabled;
+      }
+
+      setBasemap(currentBasemap);
+
+      if (latestSelectedProductInfo && typeof renderDynamicLegend === "function") {
+        renderDynamicLegend(latestSelectedProductInfo);
+      }
+
+      return;
+    }
+
+    const input = event.target.closest("[data-layer-toggle]");
+
+    if (!input) {
+      return;
+    }
+
+    const key = String(input.dataset.layerToggle || "").trim();
+
+    if (!key) {
+      return;
+    }
+
+    setLayerVisibilityState(key, input.checked);
+    syncLayerToggleInputs();
+    applyLayerVisibility();
+  });
+
+  syncLayerToggleInputs();
+}
+
+function renderDynamicLegend(info = latestSelectedProductInfo) {
+  const body = document.querySelector("#map-legend .map-legend-body");
+
+  if (!body) {
+    return;
+  }
+
+  const products = Array.isArray(info?.products) && info.products.length
+    ? info.products
+    : info?.product
+      ? [info.product]
+      : [];
+
+  const multiple = products.length > 1;
+
+  const sections = [
+    renderBasemapControlsLegendSectionV7(),
+  ];
+
+  products.forEach((product) => {
+    const productSections = renderProductLegendSectionsV4(info, product);
+
+    if (!productSections.length) {
+      return;
+    }
+
+    if (multiple) {
+      sections.push(`
+        <div class="legend-product-group">
+          <div class="legend-product-title">${escapeHtml(getProductLabel(product))}</div>
+          ${productSections.join("")}
+        </div>
+      `);
+    } else {
+      sections.push(...productSections);
+    }
+  });
+
+  sections.push(renderAoiLegendSectionV4());
+
+  const cleanSections = sections.filter(Boolean);
+
+  if (!cleanSections.length) {
+    body.innerHTML = `<div class="map-legend-placeholder">${escapeHtml(t("noDisplayableLayers"))}</div>`;
+  } else {
+    body.innerHTML = cleanSections.join("");
+  }
+
+  syncLayerToggleInputs();
+
+  // Re-add visible COG layers after AOI/product reloads.
+  window.setTimeout(() => {
+    syncActiveCogLayersForCurrentInfoV8(info);
+  }, 0);
+}
+
+async function loadAoi(aoiNumber = selectedAoiNumber) {
+  if (!mapReady || isLoading) return;
+
+  const nextAoiNumber = Number(aoiNumber);
+  selectedAoiNumber = Number.isFinite(nextAoiNumber)
+    ? nextAoiNumber
+    : DEFAULT_AOI_NUMBER;
+
+  isLoading = true;
+
+  latestDataStatusMeta = {};
+  latestSelectedProductInfo = null;
+  renderDataStatusPanel();
+
+  setStatus("loading", t("loadingTitle"), t("loadingText"), false);
+
+  try {
+    clearCopernicusDataLayers();
+
+    const info = await getCopernicusLayerInfo(selectedAoiNumber);
+    latestSelectedProductInfo = info;
+
+    renderAoiList(latestAois);
+    fitAoiExtent(info.aoi);
+    showAoiExtent(info.aoi);
+
+    const wantedOrder = [
+      "notAnalysedA",
+      "groundMovementA",
+      "transportationA",
+      "facilitiesA",
+      "builtUpA",
+      "builtUpP",
+      "ancillaryCrisisInfoP",
+      "transportationL",
+    ];
+
+    const layerJobs = [];
+
+    for (const entry of info.productLayerEntries || []) {
+      for (const kind of wantedOrder) {
+        const url = entry.urls?.[kind];
+
+        if (url) {
+          layerJobs.push([kind, url, entry.product]);
+        }
+      }
+    }
+
+    const results = [];
+
+    for (const [kind, url, product] of layerJobs) {
+      try {
+        const value = await addCopernicusLayer(kind, url, product);
+        results.push({ status: "fulfilled", value, kind, product });
+      } catch (error) {
+        console.warn(`Layer ${kind} failed:`, error);
+        results.push({ status: "rejected", reason: error, kind, product });
+      }
+    }
+
+    const loadedCount = results.filter(
+      (result) => result.status === "fulfilled" && result.value === true
+    ).length;
+
+    showAoiExtent(info.aoi);
+    moveLabelsToTop();
+    renderDynamicLegend(info);
+    applyLayerVisibility();
+
+    const hasSourceImages = Array.isArray(info.cogLayers) && info.cogLayers.length > 0;
+
+    if (loadedCount === 0 && !hasSourceImages) {
+      console.warn("Copernicus layer load results:", results);
+
+      setStatus(
+        "error",
+        t("aoiUnavailableTitle"),
+        `${formatAoiLabel(info.aoi)} · ${formatProductListLabel(info.products || []) || getProductLabel(info.product)} — ${t("aoiUnavailableText")}`,
+        false
+      );
+
+      updateDataStatusPanel({
+        successfulLoadTime: "",
+        loadedLayerCount: 0,
+      });
+
+      return;
+    }
+
+    updateDataStatusPanel({
+      successfulLoadTime: new Date().toISOString(),
+      loadedLayerCount: loadedCount,
+    });
+
+    renderAoiList(latestAois);
+
+    const statusMessage = loadedCount > 0
+      ? t("loadedText")
+      : `${t("sourceImageOnly")} — ${t("loadedText")}`;
+
+    setStatus(
+      "success",
+      t("loadedTitle"),
+      `${formatAoiLabel(info.aoi)} · ${formatProductListLabel(info.products || []) || getProductLabel(info.product)} — ${statusMessage}`,
+      false
+    );
+
+    window.setTimeout(() => {
+      if (els.status.classList.contains("success")) {
+        els.status.classList.add("hidden");
+      }
+    }, 5500);
+  } catch (error) {
+    console.error(error);
+
+    setStatus(
+      "error",
+      t("unavailableTitle"),
+      `${t("unavailableText")}${error.message ? ` (${error.message})` : ""}`,
+      true
+    );
+  } finally {
+    isLoading = false;
+  }
+}
+
+/* Client-side COG source imagery rendering: end */
