@@ -2770,3 +2770,67 @@ button.aoi-card:hover {
 }
 
 /* Final flat AOI list design: end */
+
+/* Mobile sidebar close and legend-hide styles: start */
+
+.sidebar-close-btn {
+  display: none;
+}
+
+@media (max-width: 820px) {
+  .sidebar {
+    padding-top: max(58px, calc(22px + env(safe-area-inset-top)));
+  }
+
+  .sidebar-close-btn {
+    position: fixed;
+    top: max(12px, env(safe-area-inset-top));
+    right: calc(12vw + 10px);
+    z-index: 20;
+
+    display: inline-grid;
+    place-items: center;
+
+    width: 40px;
+    height: 40px;
+
+    border: 1px solid var(--border);
+    border-radius: 999px;
+    background: rgba(9, 13, 20, 0.92);
+    color: var(--text);
+    box-shadow: var(--shadow);
+    backdrop-filter: blur(12px);
+
+    font-size: 1.45rem;
+    font-weight: 800;
+    line-height: 1;
+
+    cursor: pointer;
+  }
+
+  .sidebar-close-btn:hover {
+    background: rgba(255, 255, 255, 0.13);
+  }
+
+  .sidebar-close-btn:focus-visible {
+    outline: 2px solid rgba(140, 199, 255, 0.95);
+    outline-offset: 2px;
+  }
+
+  /*
+    When the mobile sidebar is open, the map legend must not overlap the
+    sidebar content. This is especially important because both are overlay
+    panels on small screens.
+  */
+  body.sidebar-open .map-legend {
+    display: none !important;
+  }
+}
+
+@media (max-width: 520px) {
+  .sidebar-close-btn {
+    right: calc(12vw + 8px);
+  }
+}
+
+/* Mobile sidebar close and legend-hide styles: end */

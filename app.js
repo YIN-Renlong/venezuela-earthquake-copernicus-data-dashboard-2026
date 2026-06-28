@@ -8939,3 +8939,66 @@ function renderAoiList(aois = latestAois) {
 }
 
 /* Final flat AOI list status-class override: end */
+
+/* Mobile sidebar close button and legend-hide behavior: start */
+
+function syncMobileSidebarA11yV13() {
+  const toggle = document.getElementById("sidebar-toggle");
+  const closeButton = document.getElementById("sidebar-close");
+  const isOpen = document.body.classList.contains("sidebar-open");
+
+  if (toggle) {
+    toggle.setAttribute("aria-expanded", isOpen ? "true" : "false");
+  }
+
+  if (closeButton) {
+    closeButton.setAttribute("aria-expanded", isOpen ? "true" : "false");
+  }
+}
+
+function closeMobileSidebar() {
+  document.body.classList.remove("sidebar-open");
+  syncMobileSidebarA11yV13();
+}
+
+function installMobileSidebarCloseButtonV13() {
+  const closeButton = document.getElementById("sidebar-close");
+  const toggle = document.getElementById("sidebar-toggle");
+
+  if (closeButton && closeButton.dataset.boundV13 !== "1") {
+    closeButton.dataset.boundV13 = "1";
+
+    closeButton.addEventListener("click", () => {
+      closeMobileSidebar();
+    });
+  }
+
+  // The existing sidebar-toggle listener still performs the actual toggle.
+  // This listener only updates aria after the existing handler has changed body state.
+  if (toggle && toggle.dataset.a11yBoundV13 !== "1") {
+    toggle.dataset.a11yBoundV13 = "1";
+
+    toggle.setAttribute("aria-controls", "sidebar");
+    toggle.setAttribute("aria-expanded", document.body.classList.contains("sidebar-open") ? "true" : "false");
+
+    toggle.addEventListener("click", () => {
+      window.setTimeout(syncMobileSidebarA11yV13, 0);
+    });
+  }
+
+  document.addEventListener("keydown", (event) => {
+    if (event.key === "Escape") {
+      window.setTimeout(syncMobileSidebarA11yV13, 0);
+    }
+  });
+
+  syncMobileSidebarA11yV13();
+}
+
+if (document.readyState === "loading") {
+  document.addEventListener("DOMContentLoaded", installMobileSidebarCloseButtonV13, { once: true });
+} else {
+  installMobileSidebarCloseButtonV13();
+}
+
+/* Mobile sidebar close button and legend-hide behavior: end */
