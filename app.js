@@ -8791,3 +8791,57 @@ function renderAoiList(aois = latestAois) {
 }
 
 /* Official product status display override: end */
+
+/* Product checkbox official status color override: start */
+
+function getProductCheckStatusClassV10(product) {
+  const dot = getOfficialProductDotClassV9(product);
+
+  if (dot === "green") return "status-green-product-check";
+  if (dot === "red") return "status-red-product-check";
+  if (dot === "amber") return "status-amber-product-check";
+
+  return "status-neutral-product-check";
+}
+
+function renderInlineProductOptionsV4(aoi) {
+  const products = getProductsSortedForAoi(aoi);
+
+  if (products.length <= 1) {
+    return "";
+  }
+
+  const selectedKeys = new Set(parseSelectedProductKeysV5(products));
+
+  const productRows = products.map((product) => {
+    const productKey = getProductKey(product);
+    const available = productHasUsefulLayers(product);
+    const checked = selectedKeys.has(productKey);
+    const statusLine = formatProductStatusLineV4(product);
+    const statusClass = getProductCheckStatusClassV10(product);
+
+    return `
+      <label class="aoi-product-check-row ${checked ? "active-product-check" : ""} ${statusClass} ${available ? "" : "disabled-product-check"}">
+        <input
+          class="aoi-product-checkbox"
+          type="checkbox"
+          data-product-key="${escapeHtml(productKey)}"
+          ${checked ? "checked" : ""}
+          ${available ? "" : "disabled"}
+        />
+        <span class="aoi-product-check-text">
+          <strong>${escapeHtml(getProductLabel(product))}</strong>
+          <small>${escapeHtml(statusLine)}</small>
+        </span>
+      </label>
+    `;
+  }).join("");
+
+  return `
+    <div class="aoi-product-options checkbox-product-options" aria-label="Product selector">
+      ${productRows}
+    </div>
+  `;
+}
+
+/* Product checkbox official status color override: end */

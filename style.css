@@ -1726,3 +1726,823 @@ button.aoi-card:hover {
   color: var(--green);
 }
 /* Official product status display styles: end */
+
+/* Product checkbox official status color styles: start */
+
+/* The connector is structural, not a warning/selection signal. */
+.aoi-product-options.checkbox-product-options {
+  border-left-color: rgba(255, 255, 255, 0.14) !important;
+}
+
+/* Default product rows are neutral. */
+.aoi-product-check-row {
+  border-color: rgba(255, 255, 255, 0.12) !important;
+  background: rgba(255, 255, 255, 0.045) !important;
+  box-shadow: none !important;
+}
+
+/* Remove previous yellow selected-product look. */
+.aoi-product-check-row.active-product-check {
+  border-color: rgba(255, 255, 255, 0.16) !important;
+  background: rgba(255, 255, 255, 0.06) !important;
+  box-shadow: none !important;
+}
+
+/* Selected product rows follow official Copernicus product status. */
+.aoi-product-check-row.active-product-check.status-green-product-check {
+  border-color: rgba(57, 217, 138, 0.62) !important;
+  background:
+    linear-gradient(90deg, rgba(57, 217, 138, 0.16), rgba(57, 217, 138, 0.055)),
+    rgba(255, 255, 255, 0.045) !important;
+  box-shadow:
+    0 0 0 1px rgba(57, 217, 138, 0.12) inset,
+    0 0 18px rgba(57, 217, 138, 0.08) !important;
+}
+
+.aoi-product-check-row.active-product-check.status-red-product-check {
+  border-color: rgba(255, 59, 48, 0.62) !important;
+  background:
+    linear-gradient(90deg, rgba(255, 59, 48, 0.15), rgba(255, 59, 48, 0.05)),
+    rgba(255, 255, 255, 0.045) !important;
+  box-shadow:
+    0 0 0 1px rgba(255, 59, 48, 0.12) inset,
+    0 0 18px rgba(255, 59, 48, 0.08) !important;
+}
+
+.aoi-product-check-row.active-product-check.status-amber-product-check {
+  border-color: rgba(255, 200, 87, 0.62) !important;
+  background:
+    linear-gradient(90deg, rgba(255, 200, 87, 0.14), rgba(255, 200, 87, 0.045)),
+    rgba(255, 255, 255, 0.045) !important;
+  box-shadow:
+    0 0 0 1px rgba(255, 200, 87, 0.12) inset,
+    0 0 18px rgba(255, 200, 87, 0.06) !important;
+}
+
+/* Checkbox tick also follows official status when selected. */
+.aoi-product-check-row.status-green-product-check .aoi-product-checkbox {
+  accent-color: var(--green);
+}
+
+.aoi-product-check-row.status-red-product-check .aoi-product-checkbox {
+  accent-color: var(--red);
+}
+
+.aoi-product-check-row.status-amber-product-check .aoi-product-checkbox {
+  accent-color: var(--amber);
+}
+
+/* Text tuning: selected completed product should feel aligned with parent AOI status. */
+.aoi-product-check-row.active-product-check.status-green-product-check .aoi-product-check-text strong {
+  color: #f4f7fb;
+}
+
+.aoi-product-check-row.active-product-check.status-green-product-check .aoi-product-check-text small {
+  color: #bdebd1;
+}
+
+.aoi-product-check-row.active-product-check.status-red-product-check .aoi-product-check-text small {
+  color: #ffc1bd;
+}
+
+.aoi-product-check-row.active-product-check.status-amber-product-check .aoi-product-check-text small {
+  color: #ffe1a3;
+}
+
+/* Product rows use checkbox state only; no separate LED/dot is needed. */
+.aoi-product-check-row .status-dot {
+  display: none !important;
+}
+
+/* Product checkbox official status color styles: end */
+
+/* Professional product selector polish styles: start */
+
+/*
+  Product selector design intent:
+  - AOI card remains the main selected object.
+  - Product rows are compact checklist/timeline items.
+  - Official status color appears as a subtle left accent, not a large glowing card.
+*/
+
+.aoi-product-options.checkbox-product-options {
+  position: relative;
+  display: grid !important;
+  gap: 6px !important;
+  margin: 4px 0 8px 46px !important;
+  padding-left: 13px !important;
+  border-left: 1px solid rgba(255, 255, 255, 0.16) !important;
+}
+
+/* Small branch from selected AOI card into product choices. */
+.aoi-product-options.checkbox-product-options::before {
+  content: "";
+  position: absolute;
+  left: -1px;
+  top: -10px;
+  width: 1px;
+  height: 10px;
+  background: rgba(255, 255, 255, 0.16);
+}
+
+/* Neutral base row: flatter, less rounded, less "button-card" feeling. */
+.aoi-product-check-row {
+  display: grid !important;
+  grid-template-columns: 20px minmax(0, 1fr) !important;
+  gap: 10px !important;
+  align-items: start !important;
+  min-height: 0 !important;
+  padding: 9px 10px !important;
+  border: 1px solid rgba(255, 255, 255, 0.105) !important;
+  border-left: 3px solid rgba(255, 255, 255, 0.18) !important;
+  border-radius: 10px !important;
+  background: rgba(255, 255, 255, 0.028) !important;
+  box-shadow: none !important;
+  color: var(--text) !important;
+  transition:
+    background 140ms ease,
+    border-color 140ms ease,
+    transform 140ms ease;
+}
+
+.aoi-product-check-row:hover {
+  background: rgba(255, 255, 255, 0.06) !important;
+  transform: translateX(1px);
+}
+
+/* Remove previous saturated selected style. */
+.aoi-product-check-row.active-product-check {
+  background: rgba(255, 255, 255, 0.04) !important;
+  border-color: rgba(255, 255, 255, 0.14) !important;
+  box-shadow: none !important;
+}
+
+/* Selected rows follow official status with subtle left accent. */
+.aoi-product-check-row.active-product-check.status-green-product-check {
+  border-color: rgba(57, 217, 138, 0.22) !important;
+  border-left-color: var(--green) !important;
+  background:
+    linear-gradient(90deg, rgba(57, 217, 138, 0.11), rgba(57, 217, 138, 0.025) 58%, rgba(255, 255, 255, 0.025)),
+    rgba(255, 255, 255, 0.025) !important;
+  box-shadow: 0 0 0 1px rgba(57, 217, 138, 0.08) inset !important;
+}
+
+.aoi-product-check-row.active-product-check.status-red-product-check {
+  border-color: rgba(255, 59, 48, 0.24) !important;
+  border-left-color: var(--red) !important;
+  background:
+    linear-gradient(90deg, rgba(255, 59, 48, 0.105), rgba(255, 59, 48, 0.025) 58%, rgba(255, 255, 255, 0.025)),
+    rgba(255, 255, 255, 0.025) !important;
+  box-shadow: 0 0 0 1px rgba(255, 59, 48, 0.08) inset !important;
+}
+
+.aoi-product-check-row.active-product-check.status-amber-product-check {
+  border-color: rgba(255, 200, 87, 0.24) !important;
+  border-left-color: var(--amber) !important;
+  background:
+    linear-gradient(90deg, rgba(255, 200, 87, 0.1), rgba(255, 200, 87, 0.024) 58%, rgba(255, 255, 255, 0.025)),
+    rgba(255, 255, 255, 0.025) !important;
+  box-shadow: 0 0 0 1px rgba(255, 200, 87, 0.08) inset !important;
+}
+
+/* Cleaner custom checkbox. */
+.aoi-product-checkbox {
+  -webkit-appearance: none !important;
+  appearance: none !important;
+  position: relative;
+  display: grid !important;
+  place-items: center !important;
+  width: 18px !important;
+  height: 18px !important;
+  margin: 2px 0 0 !important;
+  border: 1.5px solid rgba(216, 222, 233, 0.64) !important;
+  border-radius: 5px !important;
+  background: rgba(255, 255, 255, 0.045) !important;
+  cursor: pointer;
+  box-shadow: none !important;
+}
+
+.aoi-product-checkbox:checked::after {
+  content: "";
+  width: 9px;
+  height: 5px;
+  margin-top: -1px;
+  border-left: 3px solid #071017;
+  border-bottom: 3px solid #071017;
+  transform: rotate(-45deg);
+}
+
+.aoi-product-check-row.status-green-product-check .aoi-product-checkbox:checked {
+  border-color: var(--green) !important;
+  background: var(--green) !important;
+}
+
+.aoi-product-check-row.status-red-product-check .aoi-product-checkbox:checked {
+  border-color: var(--red) !important;
+  background: var(--red) !important;
+}
+
+.aoi-product-check-row.status-amber-product-check .aoi-product-checkbox:checked {
+  border-color: var(--amber) !important;
+  background: var(--amber) !important;
+}
+
+.aoi-product-checkbox:focus-visible {
+  outline: 2px solid rgba(140, 199, 255, 0.9);
+  outline-offset: 2px;
+}
+
+.aoi-product-check-row.disabled-product-check {
+  opacity: 0.58;
+  cursor: not-allowed;
+}
+
+.aoi-product-check-row.disabled-product-check .aoi-product-checkbox {
+  cursor: not-allowed;
+}
+
+/* Typography: tighter and calmer. */
+.aoi-product-check-text {
+  min-width: 0;
+}
+
+.aoi-product-check-text strong {
+  display: block;
+  margin: 0;
+  color: #f4f7fb;
+  font-size: 0.88rem !important;
+  font-weight: 850 !important;
+  line-height: 1.16 !important;
+  letter-spacing: -0.01em;
+}
+
+.aoi-product-check-text small {
+  display: block;
+  margin-top: 4px;
+  color: var(--muted);
+  font-size: 0.74rem !important;
+  font-weight: 650;
+  line-height: 1.28 !important;
+  overflow-wrap: anywhere;
+}
+
+.aoi-product-check-row.active-product-check.status-green-product-check .aoi-product-check-text small {
+  color: #bfe8d0 !important;
+}
+
+.aoi-product-check-row.active-product-check.status-red-product-check .aoi-product-check-text small {
+  color: #ffc5c1 !important;
+}
+
+.aoi-product-check-row.active-product-check.status-amber-product-check .aoi-product-check-text small {
+  color: #ffe0a1 !important;
+}
+
+/* Keep the product row distinct from AOI status dots. */
+.aoi-product-check-row .status-dot {
+  display: none !important;
+}
+
+@media (max-width: 520px) {
+  .aoi-product-options.checkbox-product-options {
+    margin-left: 34px !important;
+    padding-left: 10px !important;
+  }
+
+  .aoi-product-check-row {
+    padding: 8px 9px !important;
+  }
+
+  .aoi-product-check-text strong {
+    font-size: 0.84rem !important;
+  }
+
+  .aoi-product-check-text small {
+    font-size: 0.72rem !important;
+  }
+}
+
+/* Professional product selector polish styles: end */
+
+/* Minimal product timeline selector styles: start */
+
+/*
+  Final product selector treatment:
+  - no card-inside-card rounded boxes
+  - product choices behave like a compact timeline/checklist
+  - selected rows use a subtle official-status accent rail
+  - parent AOI card remains the primary selected object
+*/
+
+.aoi-product-options.checkbox-product-options {
+  position: relative;
+  display: grid !important;
+  gap: 0 !important;
+  margin: 4px 0 8px 52px !important;
+  padding: 6px 0 4px 18px !important;
+  border-left: 1px solid rgba(216, 222, 233, 0.18) !important;
+}
+
+/* Small continuation line below the AOI card. */
+.aoi-product-options.checkbox-product-options::before {
+  content: "";
+  position: absolute;
+  left: -1px;
+  top: -12px;
+  width: 1px;
+  height: 12px;
+  background: rgba(216, 222, 233, 0.18);
+}
+
+/* Flat timeline row. */
+.aoi-product-check-row {
+  position: relative !important;
+  display: grid !important;
+  grid-template-columns: 18px minmax(0, 1fr) !important;
+  gap: 10px !important;
+  align-items: start !important;
+  min-height: 0 !important;
+
+  padding: 10px 10px 10px 12px !important;
+  border: 0 !important;
+  border-radius: 5px !important;
+  background: transparent !important;
+  box-shadow: none !important;
+
+  color: var(--text) !important;
+  cursor: pointer;
+  transform: none !important;
+  transition:
+    background 140ms ease,
+    color 140ms ease;
+}
+
+/* Small branch connector from timeline to each row. */
+.aoi-product-check-row::before {
+  content: "";
+  position: absolute;
+  left: -18px;
+  top: 20px;
+  width: 12px;
+  height: 1px;
+  background: rgba(216, 222, 233, 0.18);
+}
+
+/* Separator line between product rows, not a surrounding card border. */
+.aoi-product-check-row:not(:last-child) .aoi-product-check-text::after {
+  content: "";
+  display: block;
+  height: 1px;
+  margin-top: 10px;
+  background: rgba(255, 255, 255, 0.065);
+}
+
+.aoi-product-check-row:hover {
+  background: rgba(255, 255, 255, 0.045) !important;
+  transform: none !important;
+}
+
+/* Remove all old selected-card styling. */
+.aoi-product-check-row.active-product-check,
+.aoi-product-check-row.active-product-check.status-green-product-check,
+.aoi-product-check-row.active-product-check.status-red-product-check,
+.aoi-product-check-row.active-product-check.status-amber-product-check {
+  border: 0 !important;
+  border-left: 0 !important;
+  border-color: transparent !important;
+  box-shadow: none !important;
+}
+
+/* Selected rows: subtle status rail instead of rounded glowing box. */
+.aoi-product-check-row.active-product-check.status-green-product-check {
+  background:
+    linear-gradient(90deg, rgba(57, 217, 138, 0.13), rgba(57, 217, 138, 0.035) 52%, transparent),
+    rgba(255, 255, 255, 0.015) !important;
+  box-shadow: inset 3px 0 0 var(--green) !important;
+}
+
+.aoi-product-check-row.active-product-check.status-red-product-check {
+  background:
+    linear-gradient(90deg, rgba(255, 59, 48, 0.12), rgba(255, 59, 48, 0.032) 52%, transparent),
+    rgba(255, 255, 255, 0.015) !important;
+  box-shadow: inset 3px 0 0 var(--red) !important;
+}
+
+.aoi-product-check-row.active-product-check.status-amber-product-check {
+  background:
+    linear-gradient(90deg, rgba(255, 200, 87, 0.12), rgba(255, 200, 87, 0.03) 52%, transparent),
+    rgba(255, 255, 255, 0.015) !important;
+  box-shadow: inset 3px 0 0 var(--amber) !important;
+}
+
+.aoi-product-check-row.active-product-check.status-green-product-check::before {
+  background: rgba(57, 217, 138, 0.52);
+}
+
+.aoi-product-check-row.active-product-check.status-red-product-check::before {
+  background: rgba(255, 59, 48, 0.52);
+}
+
+.aoi-product-check-row.active-product-check.status-amber-product-check::before {
+  background: rgba(255, 200, 87, 0.52);
+}
+
+/* Smaller, quieter checkbox. */
+.aoi-product-checkbox {
+  -webkit-appearance: none !important;
+  appearance: none !important;
+  position: relative;
+  display: grid !important;
+  place-items: center !important;
+
+  width: 16px !important;
+  height: 16px !important;
+  margin: 2px 0 0 !important;
+
+  border: 1.4px solid rgba(216, 222, 233, 0.64) !important;
+  border-radius: 4px !important;
+  background: rgba(255, 255, 255, 0.035) !important;
+  box-shadow: none !important;
+  cursor: pointer;
+}
+
+.aoi-product-checkbox:checked::after {
+  content: "";
+  width: 8px;
+  height: 5px;
+  margin-top: -1px;
+  border-left: 2.5px solid #061016;
+  border-bottom: 2.5px solid #061016;
+  transform: rotate(-45deg);
+}
+
+.aoi-product-check-row.status-green-product-check .aoi-product-checkbox:checked {
+  border-color: var(--green) !important;
+  background: var(--green) !important;
+}
+
+.aoi-product-check-row.status-red-product-check .aoi-product-checkbox:checked {
+  border-color: var(--red) !important;
+  background: var(--red) !important;
+}
+
+.aoi-product-check-row.status-amber-product-check .aoi-product-checkbox:checked {
+  border-color: var(--amber) !important;
+  background: var(--amber) !important;
+}
+
+.aoi-product-checkbox:focus-visible {
+  outline: 2px solid rgba(140, 199, 255, 0.92);
+  outline-offset: 2px;
+}
+
+/* Typography: less chunky, more information-panel style. */
+.aoi-product-check-text {
+  min-width: 0;
+}
+
+.aoi-product-check-text strong {
+  display: block;
+  margin: 0;
+  color: #f4f7fb;
+  font-size: 0.84rem !important;
+  font-weight: 820 !important;
+  line-height: 1.16 !important;
+  letter-spacing: -0.01em;
+}
+
+.aoi-product-check-text small {
+  display: block;
+  margin-top: 4px;
+  color: var(--muted);
+  font-size: 0.72rem !important;
+  font-weight: 620;
+  line-height: 1.28 !important;
+  overflow-wrap: anywhere;
+}
+
+.aoi-product-check-row.active-product-check.status-green-product-check .aoi-product-check-text small {
+  color: #c5ead4 !important;
+}
+
+.aoi-product-check-row.active-product-check.status-red-product-check .aoi-product-check-text small {
+  color: #ffc9c6 !important;
+}
+
+.aoi-product-check-row.active-product-check.status-amber-product-check .aoi-product-check-text small {
+  color: #ffe2aa !important;
+}
+
+.aoi-product-check-row.disabled-product-check {
+  opacity: 0.55 !important;
+  cursor: not-allowed;
+}
+
+.aoi-product-check-row.disabled-product-check .aoi-product-checkbox {
+  cursor: not-allowed;
+}
+
+/* Product rows do not need a separate LED/status dot. */
+.aoi-product-check-row .status-dot {
+  display: none !important;
+}
+
+/* Previous product chip/card rules are obsolete. */
+.aoi-product-chip {
+  display: none !important;
+}
+
+@media (max-width: 520px) {
+  .aoi-product-options.checkbox-product-options {
+    margin-left: 38px !important;
+    padding-left: 14px !important;
+  }
+
+  .aoi-product-check-row {
+    grid-template-columns: 17px minmax(0, 1fr) !important;
+    gap: 9px !important;
+    padding: 9px 8px 9px 10px !important;
+  }
+
+  .aoi-product-check-row::before {
+    left: -14px;
+    width: 9px;
+  }
+
+  .aoi-product-check-text strong {
+    font-size: 0.8rem !important;
+  }
+
+  .aoi-product-check-text small {
+    font-size: 0.69rem !important;
+  }
+}
+
+/* Minimal product timeline selector styles: end */
+
+/* Final flat product timeline selector: start */
+
+/*
+  Modern product selector:
+  - product choices are timeline rows, not nested cards
+  - no rounded product boxes
+  - no green gradient block
+  - selected state is shown by checkbox + thin status rail + stronger text
+  - parent AOI card remains the only real card
+*/
+
+.aoi-list .aoi-product-options.checkbox-product-options {
+  position: relative !important;
+  display: grid !important;
+  gap: 0 !important;
+  margin: 3px 0 8px 52px !important;
+  padding: 4px 0 2px 18px !important;
+  border-left: 1px solid rgba(216, 222, 233, 0.18) !important;
+  background: transparent !important;
+}
+
+/* Vertical continuation below the AOI card. */
+.aoi-list .aoi-product-options.checkbox-product-options::before {
+  content: "";
+  position: absolute;
+  left: -1px;
+  top: -12px;
+  width: 1px;
+  height: 12px;
+  background: rgba(216, 222, 233, 0.18);
+}
+
+/* Product row: fully flat, no card border/rounding/background. */
+.aoi-list .aoi-product-options.checkbox-product-options .aoi-product-check-row {
+  position: relative !important;
+  display: grid !important;
+  grid-template-columns: 18px minmax(0, 1fr) !important;
+  gap: 10px !important;
+  align-items: start !important;
+
+  margin: 0 !important;
+  padding: 8px 4px 9px 10px !important;
+
+  border: 0 !important;
+  border-radius: 0 !important;
+  background: transparent !important;
+  box-shadow: none !important;
+  outline: 0 !important;
+
+  color: var(--text) !important;
+  cursor: pointer;
+  transform: none !important;
+  transition:
+    background-color 140ms ease,
+    opacity 140ms ease;
+}
+
+/* Horizontal branch connector from timeline to row. */
+.aoi-list .aoi-product-options.checkbox-product-options .aoi-product-check-row::before {
+  content: "";
+  position: absolute;
+  left: -18px;
+  top: 18px;
+  width: 12px;
+  height: 1px;
+  background: rgba(216, 222, 233, 0.18);
+}
+
+/* Simple divider between rows, not a surrounding card. */
+.aoi-list .aoi-product-options.checkbox-product-options .aoi-product-check-row:not(:last-child)::after {
+  content: "";
+  position: absolute;
+  left: 38px;
+  right: 4px;
+  bottom: 0;
+  height: 1px;
+  background: rgba(255, 255, 255, 0.065);
+}
+
+/* Disable older divider implementation if present. */
+.aoi-list .aoi-product-options.checkbox-product-options .aoi-product-check-row .aoi-product-check-text::after {
+  display: none !important;
+}
+
+/* Hover is very subtle, still not a card. */
+.aoi-list .aoi-product-options.checkbox-product-options .aoi-product-check-row:hover {
+  background: rgba(255, 255, 255, 0.032) !important;
+  border-radius: 0 !important;
+  transform: none !important;
+}
+
+/* Remove all previous rounded selected product-card styling. */
+.aoi-list .aoi-product-options.checkbox-product-options .aoi-product-check-row.active-product-check,
+.aoi-list .aoi-product-options.checkbox-product-options .aoi-product-check-row.active-product-check.status-green-product-check,
+.aoi-list .aoi-product-options.checkbox-product-options .aoi-product-check-row.active-product-check.status-red-product-check,
+.aoi-list .aoi-product-options.checkbox-product-options .aoi-product-check-row.active-product-check.status-amber-product-check {
+  border: 0 !important;
+  border-left: 0 !important;
+  border-radius: 0 !important;
+  background: transparent !important;
+  box-shadow: none !important;
+}
+
+/* Selected state: thin official-status rail only. No gradient box. */
+.aoi-list .aoi-product-options.checkbox-product-options .aoi-product-check-row.active-product-check.status-green-product-check {
+  box-shadow: inset 2px 0 0 var(--green) !important;
+}
+
+.aoi-list .aoi-product-options.checkbox-product-options .aoi-product-check-row.active-product-check.status-red-product-check {
+  box-shadow: inset 2px 0 0 var(--red) !important;
+}
+
+.aoi-list .aoi-product-options.checkbox-product-options .aoi-product-check-row.active-product-check.status-amber-product-check {
+  box-shadow: inset 2px 0 0 var(--amber) !important;
+}
+
+/* Connector color follows selected official status. */
+.aoi-list .aoi-product-options.checkbox-product-options .aoi-product-check-row.active-product-check.status-green-product-check::before {
+  background: rgba(57, 217, 138, 0.56);
+}
+
+.aoi-list .aoi-product-options.checkbox-product-options .aoi-product-check-row.active-product-check.status-red-product-check::before {
+  background: rgba(255, 59, 48, 0.56);
+}
+
+.aoi-list .aoi-product-options.checkbox-product-options .aoi-product-check-row.active-product-check.status-amber-product-check::before {
+  background: rgba(255, 200, 87, 0.56);
+}
+
+/* Clean, compact checkbox. */
+.aoi-list .aoi-product-options.checkbox-product-options .aoi-product-checkbox {
+  -webkit-appearance: none !important;
+  appearance: none !important;
+
+  position: relative;
+  display: grid !important;
+  place-items: center !important;
+
+  width: 15px !important;
+  height: 15px !important;
+  margin: 2px 0 0 !important;
+
+  border: 1.4px solid rgba(216, 222, 233, 0.66) !important;
+  border-radius: 3px !important;
+  background: transparent !important;
+  box-shadow: none !important;
+  cursor: pointer;
+}
+
+.aoi-list .aoi-product-options.checkbox-product-options .aoi-product-checkbox:checked::after {
+  content: "";
+  width: 8px;
+  height: 5px;
+  margin-top: -1px;
+  border-left: 2.4px solid #061016;
+  border-bottom: 2.4px solid #061016;
+  transform: rotate(-45deg);
+}
+
+.aoi-list .aoi-product-options.checkbox-product-options .status-green-product-check .aoi-product-checkbox:checked {
+  border-color: var(--green) !important;
+  background: var(--green) !important;
+}
+
+.aoi-list .aoi-product-options.checkbox-product-options .status-red-product-check .aoi-product-checkbox:checked {
+  border-color: var(--red) !important;
+  background: var(--red) !important;
+}
+
+.aoi-list .aoi-product-options.checkbox-product-options .status-amber-product-check .aoi-product-checkbox:checked {
+  border-color: var(--amber) !important;
+  background: var(--amber) !important;
+}
+
+.aoi-list .aoi-product-options.checkbox-product-options .aoi-product-checkbox:focus-visible {
+  outline: 2px solid rgba(140, 199, 255, 0.92);
+  outline-offset: 2px;
+}
+
+/* Typography: modern, compact, not oversized. */
+.aoi-list .aoi-product-options.checkbox-product-options .aoi-product-check-text {
+  min-width: 0;
+}
+
+.aoi-list .aoi-product-options.checkbox-product-options .aoi-product-check-text strong {
+  display: block;
+  margin: 0;
+  color: rgba(244, 247, 251, 0.96);
+  font-size: 0.8rem !important;
+  font-weight: 760 !important;
+  line-height: 1.18 !important;
+  letter-spacing: -0.01em;
+}
+
+.aoi-list .aoi-product-options.checkbox-product-options .aoi-product-check-text small {
+  display: block;
+  margin-top: 3px;
+  color: rgba(174, 184, 199, 0.88);
+  font-size: 0.68rem !important;
+  font-weight: 560 !important;
+  line-height: 1.28 !important;
+  overflow-wrap: anywhere;
+}
+
+.aoi-list .aoi-product-options.checkbox-product-options .aoi-product-check-row.active-product-check .aoi-product-check-text strong {
+  color: #f6f9fc !important;
+}
+
+.aoi-list .aoi-product-options.checkbox-product-options .aoi-product-check-row.active-product-check.status-green-product-check .aoi-product-check-text small {
+  color: rgba(191, 232, 208, 0.96) !important;
+}
+
+.aoi-list .aoi-product-options.checkbox-product-options .aoi-product-check-row.active-product-check.status-red-product-check .aoi-product-check-text small {
+  color: rgba(255, 201, 198, 0.96) !important;
+}
+
+.aoi-list .aoi-product-options.checkbox-product-options .aoi-product-check-row.active-product-check.status-amber-product-check .aoi-product-check-text small {
+  color: rgba(255, 226, 170, 0.96) !important;
+}
+
+.aoi-list .aoi-product-options.checkbox-product-options .aoi-product-check-row.disabled-product-check {
+  opacity: 0.52 !important;
+  cursor: not-allowed;
+}
+
+.aoi-list .aoi-product-options.checkbox-product-options .aoi-product-check-row.disabled-product-check .aoi-product-checkbox {
+  cursor: not-allowed;
+}
+
+/* Product rows never need a separate LED dot. */
+.aoi-list .aoi-product-options.checkbox-product-options .aoi-product-check-row .status-dot {
+  display: none !important;
+}
+
+/* Kill old product-card/chip styles completely. */
+.aoi-product-chip {
+  display: none !important;
+}
+
+@media (max-width: 520px) {
+  .aoi-list .aoi-product-options.checkbox-product-options {
+    margin-left: 38px !important;
+    padding-left: 14px !important;
+  }
+
+  .aoi-list .aoi-product-options.checkbox-product-options .aoi-product-check-row {
+    grid-template-columns: 16px minmax(0, 1fr) !important;
+    gap: 8px !important;
+    padding: 8px 4px 8px 9px !important;
+  }
+
+  .aoi-list .aoi-product-options.checkbox-product-options .aoi-product-check-row::before {
+    left: -14px;
+    width: 9px;
+  }
+
+  .aoi-list .aoi-product-options.checkbox-product-options .aoi-product-check-text strong {
+    font-size: 0.76rem !important;
+  }
+
+  .aoi-list .aoi-product-options.checkbox-product-options .aoi-product-check-text small {
+    font-size: 0.66rem !important;
+  }
+}
+
+/* Final flat product timeline selector: end */
