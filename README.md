@@ -965,6 +965,1210 @@ This project is independent and unofficial. It is not endorsed by Copernicus, th
 
 
 
+**[28 June 2026]-3 — Copernicus source imagery promoted to a dedicated image-comparison panel**
+
+This section records the design thinking, implementation details, UI iterations, debugging steps, and final behavior for the **Copernicus source imagery / image-comparison feature** developed after the ES module refactor.
+
+The motivation for this change was that the official Copernicus source imagery is not merely a legend item. In practice, the before/after or earlier/later visual comparison of official satellite acquisitions can be one of the most powerful parts of the dashboard. Users can directly inspect collapsed structures, changed roofs, road interruptions, debris, shadows, cloud/non-analysed areas, and surrounding context.
+
+The previous implementation technically supported COG source imagery, but it placed the source images inside the map legend under:
+
+    Imagen fuente de Copernicus
+
+This made the feature easy to miss. The source imagery was visually treated as just another legend row, even though users may repeatedly click between different source images to compare dates and understand visible changes.
+
+The goal of this update was therefore:
+
+    Promote Copernicus source imagery from a hidden legend subsection
+    into a prominent, dedicated, collapsible image-comparison panel.
+
+The feature remains static-site compatible and continues to use the existing browser-side COG renderer.
+
+---
+
+### **1. Problem discovered: source imagery was too hidden inside the legend**
+
+The earlier COG implementation displayed source imagery inside the dynamic map legend, alongside vector layer toggles such as:
+
+    Built Up Points
+    Built Up Area
+    Road and rail network
+    Not Analysed
+    Facilities Area
+    Transportation Area
+    General Information
+
+This was technically correct, but from a UX perspective it underplayed the importance of the imagery.
+
+The source imagery is actual satellite evidence/context. It is not only a symbol explanation.
+
+A legend explains what map symbols mean.
+
+The Copernicus source imagery lets the user visually inspect the real official satellite image behind the assessment.
+
+Therefore the previous hierarchy:
+
+    Legend
+      Basemap
+      Vector layers
+      Source imagery
+      AOI outline
+
+was changed conceptually toward:
+
+    Source imagery / image comparison
+    Legend / vector layer controls
+
+This established the key design decision:
+
+    Copernicus source imagery should be a first-class map panel,
+    not a sub-part of the legend.
+
+---
+
+### **2. Important wording decision: avoid unsafe “before/after” claims**
+
+The motivation was to support before/after-style visual comparison. However, the UI wording was intentionally kept cautious.
+
+The Copernicus product source images are not always strictly:
+
+    pre-event image
+    post-event image
+
+They may instead be:
+
+    original grading acquisition
+    monitoring acquisition
+    two post-event acquisitions
+    different sensors
+    different acquisition times
+    different products selected together
+
+Therefore the UI does not call the feature simply “Before / After.”
+
+Instead, safer wording was chosen:
+
+Spanish:
+
+    Imagen fuente de Copernicus
+    Comparar adquisiciones oficiales
+
+English:
+
+    Copernicus source imagery
+    Compare official acquisition dates
+
+Italian:
+
+    Immagine sorgente Copernicus
+    Confronta le acquisizioni ufficiali
+
+Chinese:
+
+    Copernicus 源影像
+    比较官方影像获取时间
+
+For compact status labels, short status words are used:
+
+Spanish:
+
+    ACTIVA
+    DISPONIBLE
+
+English:
+
+    ACTIVE
+    AVAILABLE
+
+Italian:
+
+    ATTIVA
+    DISPONIBILE
+
+Chinese:
+
+    已启用
+    可选择
+
+This avoids overclaiming while still making the comparison feature discoverable and useful.
+
+---
+
+### **3. New design direction: dedicated imagery panel**
+
+A new dedicated map overlay panel was added:
+
+    #source-imagery-panel
+
+It is separate from:
+
+    #map-legend
+
+The imagery panel appears when the selected AOI/product combination has one or more COG source images.
+
+The legend remains focused on:
+
+- basemap controls
+- built-up damage layers
+- transportation layers
+- not-analysed layers
+- ground movement layers
+- facilities
+- crisis points
+- AOI outline
+
+The source imagery is no longer duplicated in the legend.
+
+This separation gives the dashboard two map overlay panels:
+
+    1. Copernicus source imagery panel
+       - source image selection
+       - image comparison
+       - COG opacity
+       - TIFF fallback links
+    
+    2. Map legend panel
+       - vector layer symbol explanation
+       - vector layer toggles
+       - basemap controls
+       - AOI outline toggle
+
+---
+
+### **4. Panel placement**
+
+For desktop, the source imagery panel is positioned at the top-left of the map area.
+
+Reasoning:
+
+- the map legend already occupies the bottom-right
+- MapLibre controls occupy the top-right
+- map status/loading messages occupy the bottom-left
+- top-left is prominent and visible
+- the panel does not conflict with the sidebar because it is inside the map area, not over the sidebar
+
+For mobile, the panel appears below the mobile topbar and uses responsive width constraints.
+
+When the mobile sidebar is open, the source imagery panel is hidden along with the legend:
+
+    body.sidebar-open .map-legend,
+    body.sidebar-open .imagery-panel {
+      display: none !important;
+    }
+
+This prevents overlay panels from blocking the mobile sidebar content.
+
+---
+
+### **5. HTML structure added**
+
+A new panel was inserted into `index.html` after the map container and before the legend:
+
+    <div
+      id="source-imagery-panel"
+      class="imagery-panel hidden"
+      aria-label="Copernicus source imagery comparison"
+    >
+      <div class="imagery-panel-header">
+        <div>
+          <strong data-i18n="sourceImagery">
+            Imagen fuente de Copernicus
+          </strong>
+          <small
+            id="source-imagery-compact-status"
+            class="imagery-compact-status"
+          >—</small>
+        </div>
+    
+        <button
+          id="source-imagery-collapse-btn"
+          class="imagery-collapse-btn"
+          type="button"
+          aria-label="Collapse imagery panel"
+        >−</button>
+      </div>
+    
+      <div id="source-imagery-body" class="imagery-panel-body"></div>
+    </div>
+
+Important IDs/classes:
+
+    source-imagery-panel
+    source-imagery-collapse-btn
+    source-imagery-compact-status
+    source-imagery-body
+    imagery-panel
+    imagery-panel-header
+    imagery-panel-body
+    imagery-compact-status
+    imagery-collapse-btn
+
+The panel is hidden if the current selection has no COG imagery.
+
+---
+
+### **6. Source imagery removed from the legend**
+
+The previous dynamic legend had a section renderer:
+
+    renderSourceImageryLegendSection(...)
+
+This was removed from the product legend sections.
+
+The product legend section list previously included source imagery, conceptually:
+
+    renderCrisisLegendSection
+    renderDamageLegendSection builtUpP
+    renderDamageLegendSection builtUpA
+    renderTransportLegendSection
+    renderNotAnalysedLegendSection
+    renderFacilitiesLegendSection
+    renderTransportationAreaLegendSection
+    renderGroundMovementLegendSection
+    renderSourceImageryLegendSection
+
+After this change, source imagery is rendered only in:
+
+    renderImageryComparisonPanel(info)
+
+This prevents duplicate controls and makes the source image workflow clearer.
+
+---
+
+### **7. New imagery rendering function**
+
+A new function was introduced in `ui.js`:
+
+    renderImageryComparisonPanel(info)
+
+It reads:
+
+    info.cogLayers
+
+and renders the dedicated source imagery UI.
+
+The COG items still use the existing metadata structure:
+
+    {
+      url,
+      label,
+      sensorName,
+      acquisitionTime,
+      layerName,
+      product,
+      productKey,
+      productLabel
+    }
+
+The panel renders rows such as:
+
+    [checkbox] [image swatch] ADQUISICIÓN Legion - 26/06/2026, 13:10 (UTC) [TIFF]
+
+or when multiple dates exist:
+
+    ANTERIOR Pleiades Neo - 25/06/2026, 15:00 (UTC)
+    MÁS RECIENTE Legion - 26/06/2026, 20:37 (UTC)
+
+The imagery rows preserve:
+
+- official sensor/time label
+- TIFF fallback link
+- COG toggle
+- opacity slider
+- product label badge when needed
+
+---
+
+### **8. Chronological sorting**
+
+Source imagery items are sorted chronologically by acquisition time.
+
+Function:
+
+    getSortedImageryItems(info)
+
+Sorting rule:
+
+    acquisitionTime ascending
+    fallback by label
+
+This makes earlier/later interpretation more natural.
+
+If there are two images:
+
+    first image -> earlier acquisition
+    last image  -> latest acquisition
+
+If there is one image:
+
+    acquisition
+
+If there are more than two:
+
+    first -> earlier
+    last  -> latest
+    middle -> acquisition 2, acquisition 3, etc.
+
+The labels are generated by:
+
+    getImageryPositionLabel(index, total)
+
+This helps users understand the temporal order without unsafe before/after wording.
+
+---
+
+### **9. Single-image comparison mode by default**
+
+A major interaction decision was made:
+
+    By default, only one source image should be active at a time.
+
+Reasoning:
+
+- this is better for visual comparison
+- users can click between acquisition rows quickly
+- multiple 100% opacity images would obscure each other
+- simpler for non-GIS users
+
+Behavior:
+
+    Click image A:
+      image A visible
+      other source images hidden
+    
+    Click image B:
+      image B visible
+      image A hidden
+    
+    Click active image again:
+      active image turns off
+      no source image visible
+
+This behavior is implemented by:
+
+    turnOffOtherImageryLayers(keepKey, info)
+
+and enforced through the imagery panel change handler.
+
+---
+
+### **10. Overlay multiple images mode**
+
+Advanced users may still want to overlay multiple COG images at different opacities.
+
+Therefore an optional overlay mode was added:
+
+    Superponer múltiples imágenes
+    Overlay multiple images
+    Sovrapponi più immagini
+    叠加多幅影像
+
+State flag:
+
+    state.imageryOverlayMode
+
+Default:
+
+    false
+
+When overlay mode is off:
+
+    selecting one source image hides the others
+
+When overlay mode is on:
+
+    multiple source images can be enabled at the same time
+
+This preserves expert flexibility while making the public/default behavior simpler.
+
+---
+
+### **11. Default COG opacity changed to 100%**
+
+The original COG implementation used:
+
+    opacity: 0.75
+
+This made sense when the source image was treated as context over a basemap.
+
+For image comparison, the image should appear clearly.
+
+The default was changed to:
+
+    opacity: 1.0
+
+Displayed as:
+
+    100%
+
+Rationale:
+
+- users are comparing image detail
+- building collapse and roof/debris detail need full clarity
+- vector overlays remain above the image, so damage points/roads remain visible
+- users can manually reduce opacity if desired
+
+The opacity slider remains available for active images.
+
+---
+
+### **12. Whole-row click interaction**
+
+The first dedicated panel still relied too much on the checkbox itself.
+
+The interaction was improved so that the whole imagery row is clickable.
+
+This means users can click anywhere on the row, not just the checkbox.
+
+However, after testing, completely hiding the checkbox made the current layer state less obvious.
+
+Therefore the final design uses:
+
+    whole-row clickable behavior
+    plus visible checkbox/selection indicator
+
+The visible checkbox shows whether that source image is currently enabled as a map layer.
+
+This was important because users need to understand:
+
+- whether the current map image is active
+- which source image they are seeing
+- whether the map background is Esri basemap or Copernicus COG imagery
+
+The final interaction is:
+
+    click anywhere on row -> toggle image
+    checkbox shows active/inactive state
+    active row gets yellow rail/highlight
+    active row shows opacity slider
+
+---
+
+### **13. Visible indicator restored**
+
+A visible checkbox-like indicator was restored after the full-row clickable patch.
+
+CSS uses a custom checkbox style:
+
+    .imagery-checkbox
+
+Inactive:
+
+    empty box
+
+Active:
+
+    yellow checked box
+
+Active row:
+
+    yellow left rail
+    subtle yellow highlight
+    opacity slider visible
+
+This keeps the UI understandable as a map-layer visibility control.
+
+Checkbox was preferred over radio because users can still turn all source images off. A radio button would imply that one option must always remain selected.
+
+---
+
+### **14. Duplicate subtitle removed**
+
+An early version of the dedicated panel repeated the same status/subtitle twice:
+
+    Imagen oficial disponible
+    −
+    Imagen oficial disponible
+
+This wasted vertical space.
+
+The repeated subtitle/helper text was removed from:
+
+- the header
+- the panel body
+
+The panel now relies on:
+
+- the main title
+- row labels
+- compact status indicator
+- visible active row
+
+This saves height and keeps the imagery panel more map-friendly.
+
+---
+
+### **15. Auto-compact behavior**
+
+Because the full imagery panel can occupy significant vertical space, especially on smaller map windows, an auto-compact behavior was added.
+
+Requirement:
+
+    After about 5 seconds of inactivity,
+    the imagery panel should shrink into a small transparent bar.
+
+This preserves map viewing space while keeping the feature discoverable.
+
+The compact bar remains visible and shows:
+
+    Imagen fuente de Copernicus   ACTIVA
+
+or:
+
+    Imagen fuente de Copernicus   DISPONIBLE
+
+The full panel reappears when the user:
+
+- hovers over the compact bar
+- focuses inside it
+- taps/clicks it
+- clicks the plus button
+
+This makes the panel non-intrusive after the user has stopped interacting with it.
+
+---
+
+### **16. Manual hide uses the same compact state**
+
+An intermediate version had three states:
+
+    full panel
+    title-only collapsed panel
+    compact transparent bar
+
+This created confusion.
+
+Clicking the minus button produced a “title-only” panel:
+
+    Imagen fuente de Copernicus
+    ACTIVA
+    +
+
+But this was not the desired behavior.
+
+The design was simplified to only two states:
+
+    1. full panel
+    2. compact transparent bar
+
+The old title-only collapsed state is no longer used.
+
+Current behavior:
+
+    after 5 seconds:
+      full panel -> compact transparent bar
+    
+    click minus:
+      full panel -> compact transparent bar
+    
+    hover/tap/click plus:
+      compact transparent bar -> full panel
+
+The button text reflects the state:
+
+    full panel:    −
+    compact bar:  +
+
+This is implemented by:
+
+    updateImageryPanelButton()
+    expandImageryPanelFromAutoCompact()
+    compactImageryPanelNow()
+    scheduleImageryAutoCompact()
+
+The CSS class used for compact mode is:
+
+    auto-compact
+
+The old class:
+
+    collapsed
+
+is intentionally removed from active imagery panel behavior.
+
+---
+
+### **17. Compact status design**
+
+The compact bar originally showed the active image name, for example:
+
+    Activa · Legion - 26/06/2026, 13:10 (UTC)
+
+This was too long and made the compact bar large.
+
+The compact status was simplified.
+
+When source imagery exists but none is enabled:
+
+    DISPONIBLE
+
+When one source image is enabled:
+
+    ACTIVA
+
+When multiple images are enabled in overlay mode:
+
+    IMÁGENES ACTIVAS · 2
+
+The active state is green:
+
+    ACTIVA
+
+The available/selectable state is blue/cyan:
+
+    DISPONIBLE
+
+This gives users an immediate hint:
+
+    DISPONIBLE:
+      source imagery can be selected
+    
+    ACTIVA:
+      a Copernicus source image is currently visible on the map
+
+This keeps the compact bar informative without showing long image names.
+
+---
+
+### **18. “Disponible” status added**
+
+The user noted that when source imagery is available but inactive, the compact bar should indicate that users can click/select it.
+
+A new status was added:
+
+Spanish:
+
+    Disponible
+
+English:
+
+    Available
+
+Italian:
+
+    Disponibile
+
+Chinese:
+
+    可选择
+
+The decision was to use **blue/cyan** for available, not green.
+
+Rationale:
+
+- green already means active/enabled
+- blue/cyan means available/selectable/info
+- this avoids confusing available with active
+
+The panel receives classes:
+
+    has-active-imagery
+    has-available-imagery
+
+Compact border color subtly reflects the state:
+
+    active     -> green-ish border
+    available  -> blue-ish border
+
+---
+
+### **19. Compact bar empty-space problem**
+
+A difficult UI issue appeared after compacting the imagery panel.
+
+The compact bar had too much empty space between:
+
+    DISPONIBLE / ACTIVA
+
+and the plus button.
+
+The user highlighted this as a red-box empty area.
+
+Several CSS-only attempts were made:
+
+1. Use `fit-content`
+2. Use `max-content`
+3. Override mobile left/right rules
+4. Use inline-grid for header
+5. Override width with more specific CSS
+
+These did not fully solve the issue because earlier overlay/mobile constraints and the panel/header layout still left an oversized compact container.
+
+The final reliable fix was implemented in JavaScript:
+
+    measure the actual compact content width
+    set inline width on the compact panel and header
+
+The compact width is now measured from:
+
+    title width
+    status width
+    gap between title/status
+    plus button width
+    header padding
+
+Conceptually:
+
+    compactWidth =
+      paddingLeft +
+      titleWidth +
+      optionalStatusGap +
+      statusWidth +
+      gapToButton +
+      buttonWidth +
+      paddingRight +
+      smallSafety
+
+The measuring function is:
+
+    fitImageryCompactText()
+
+When the panel is in compact mode:
+
+    panel.style.setProperty("width", `${targetWidth}px`, "important")
+    header.style.setProperty("width", `${targetWidth}px`, "important")
+    header.style.setProperty("max-width", `${targetWidth}px`, "important")
+
+When the panel returns to full mode:
+
+    inline compact width is removed
+
+This finally removed the large empty red-box area.
+
+---
+
+### **20. Compact bar text fitting**
+
+The compact bar needs to display the full text without ellipsis:
+
+    IMAGEN FUENTE DE COPERNICUS DISPONIBLE
+    IMAGEN FUENTE DE COPERNICUS ACTIVA
+
+However, Spanish, English, Italian, and Chinese text lengths differ.
+
+A CSS variable was introduced:
+
+    --imagery-compact-font-scale
+
+The function:
+
+    fitImageryCompactText()
+
+calculates whether the title/status/button fit within the viewport.
+
+If they do not fit, it scales the compact title/status text down slightly.
+
+The goal:
+
+    prefer full text
+    avoid ellipsis
+    shrink font only when necessary
+    never let the compact bar overflow the viewport
+
+The minimum scale is conservative, around:
+
+    0.52
+
+This prevents uncontrolled overflow while keeping the text readable.
+
+An earlier ellipsis behavior caused:
+
+    IMAGEN FUENTE DE COPERNI...
+
+This was removed because it made the compact label feel broken and less professional.
+
+---
+
+### **21. Light transition / animation**
+
+The compact/full transition was given a subtle animation.
+
+Not overdesigned.
+
+Transitioned properties include:
+
+- opacity
+- width
+- max-height
+- border-radius
+- background-color
+- border-color
+- header padding
+- body opacity
+- body max-height
+
+When compacting:
+
+    body max-height -> 0
+    body opacity -> 0
+    panel becomes pill-shaped
+    opacity becomes slightly lower
+
+When expanding:
+
+    body reappears
+    panel returns to card shape
+    opacity returns closer to full
+
+This creates a smoother interaction when hovering over or clicking the compact bar.
+
+---
+
+### **22. CSS classes introduced**
+
+New imagery panel classes include:
+
+    imagery-panel
+    imagery-panel-header
+    imagery-panel-body
+    imagery-collapse-btn
+    imagery-compact-status
+    imagery-overlay-mode
+    imagery-list
+    imagery-item
+    active-imagery-item
+    imagery-row
+    imagery-select-label
+    imagery-checkbox
+    imagery-text
+    imagery-title-line
+    imagery-time-badge
+    imagery-product-badge
+    imagery-tiff-link
+    imagery-opacity-row
+    imagery-empty
+    auto-compact
+    has-active-imagery
+    has-available-imagery
+
+Important state classes:
+
+    auto-compact
+      compact transparent bar mode
+    
+    active-imagery-item
+      row whose source image is currently enabled
+    
+    has-active-imagery
+      panel contains an active COG source image
+    
+    has-available-imagery
+      panel has selectable imagery but none active
+
+---
+
+### **23. JavaScript functions introduced or modified**
+
+New / modified UI functions include:
+
+    getSortedImageryItems(info)
+    getImageryPositionLabel(index, total)
+    turnOffOtherImageryLayers(keepKey, info)
+    enforceSingleImagerySelection(info)
+    setupImageryComparisonPanelEvents()
+    renderImageryComparisonPanel(info)
+    getImageryPanelElement()
+    clearImageryAutoCompactTimer()
+    updateImageryPanelButton()
+    expandImageryPanelFromAutoCompact()
+    compactImageryPanelNow()
+    scheduleImageryAutoCompact()
+    getImageryCompactStatusInfo(info)
+    updateImageryCompactStatus(info)
+    fitImageryCompactText()
+
+Existing dynamic legend behavior was modified so that:
+
+    renderDynamicLegend(info)
+      -> renders normal legend
+      -> calls renderImageryComparisonPanel(info)
+
+COG state and rendering functions remain in `cog-renderer.js`:
+
+    cogItemKey()
+    getCogLayerState()
+    registerCogCatalogItem()
+    getCogCatalogItem()
+    addCogRasterLayer()
+    removeCogRasterLayer()
+    setCogOpacity()
+    syncActiveCogLayersForCurrentInfo()
+
+The imagery panel reuses these functions instead of creating a second COG state system.
+
+---
+
+### **24. State change introduced**
+
+A small state flag was added:
+
+    state.imageryOverlayMode = false
+
+This does not redesign the state system. It simply stores whether users are in:
+
+    single-image comparison mode
+
+or:
+
+    multi-image overlay mode
+
+Default:
+
+    false
+
+This matches the public-user-first design.
+
+---
+
+### **25. COG renderer change introduced**
+
+The default COG opacity was changed from:
+
+    0.75
+
+to:
+
+    1.0
+
+Inside the COG default state:
+
+    {
+      visible: false,
+      opacity: 1.0
+    }
+
+The COG opacity setter was also updated so both old legend opacity labels and new imagery panel opacity labels can update:
+
+    [data-cog-opacity-value]
+    [data-imagery-opacity-value]
+
+This keeps the renderer robust if older UI fragments are ever reintroduced.
+
+---
+
+### **26. Translations added**
+
+New translation keys include:
+
+    sourceImageryCompareSubtitle
+    sourceImagerySingleSubtitle
+    overlayMultipleImages
+    earlierAcquisition
+    latestAcquisition
+    sourceImageryAcquisition
+    collapseImageryPanel
+    expandImageryPanel
+    sourceImageryActive
+    sourceImageryInactive
+    sourceImageryActiveMultiple
+    sourceImageryAvailable
+
+The important compact labels are:
+
+Spanish:
+
+    sourceImageryActive: "Activa"
+    sourceImageryAvailable: "Disponible"
+
+English:
+
+    sourceImageryActive: "Active"
+    sourceImageryAvailable: "Available"
+
+Italian:
+
+    sourceImageryActive: "Attiva"
+    sourceImageryAvailable: "Disponibile"
+
+Chinese:
+
+    sourceImageryActive: "已启用"
+    sourceImageryAvailable: "可选择"
+
+---
+
+### **27. Current final source imagery behavior**
+
+Current behavior after all iterations:
+
+1. If the selected AOI/product has no COG imagery:
+
+       imagery panel is hidden
+
+2. If COG imagery exists but no image is enabled:
+
+       compact/full panel status shows DISPONIBLE / Available
+       status is blue/cyan
+
+3. If one COG image is enabled:
+
+       status shows ACTIVA / Active
+       status is green
+       selected row has visible checked indicator
+       selected row has yellow active highlight
+       opacity slider appears
+       opacity defaults to 100%
+
+4. If multiple images are enabled in overlay mode:
+
+       status shows active images count
+       multiple rows can be checked
+       each visible image has its own opacity slider
+
+5. In normal mode:
+
+       selecting one source image hides other source images
+       users can click between images quickly
+
+6. The entire image row is clickable:
+
+       click row -> toggle source image
+
+7. TIFF fallback link remains available:
+
+       TIFF
+
+8. After 5 seconds of inactivity:
+
+       panel auto-compacts into a transparent pill-shaped bar
+
+9. Clicking minus manually:
+
+       full panel -> same compact bar
+
+10. Clicking plus / hover / focus / tap:
+
+       compact bar -> full panel
+
+11. The old title-only collapsed state is no longer used.
+
+12. Compact bar width is measured to fit content only:
+
+       no large empty area after ACTIVA/DISPONIBLE
+       no ellipsis
+       text scales only if the viewport is too narrow
+
+---
+
+### **28. Why this design is better**
+
+This design improves the dashboard because:
+
+- source imagery is now visible as an important feature
+- users can discover it more easily
+- comparison is faster
+- the map is not permanently blocked by a large panel
+- active/inactive imagery state is clear
+- source imagery no longer clutters the legend
+- COG imagery remains optional and lazy-loaded
+- TIFF links remain available
+- advanced overlay mode still exists
+- mobile behavior remains manageable
+- the design remains consistent with the dark glass dashboard style
+
+The most important UX improvement is:
+
+    Source imagery is no longer a hidden legend row.
+    It is now a dedicated image-comparison control.
+
+---
+
+### **29. Remaining possible future improvements**
+
+Possible future enhancements:
+
+#### **1. Blink comparison**
+
+For two selected images:
+
+    automatically alternate earlier/latest every 0.8–1.2 seconds
+
+This can make collapse/damage changes more visible.
+
+#### **2. Hold-to-compare**
+
+Desktop:
+
+    hold button to show latest image
+    release to show earlier image
+
+Mobile:
+
+    tap to toggle
+
+#### **3. Swipe comparison**
+
+A draggable split-screen slider between two COG images.
+
+Very powerful, but more complex.
+
+#### **4. Side-by-side synchronized maps**
+
+Two maps with synchronized camera:
+
+    earlier image on left
+    latest image on right
+
+Most powerful but heavy for browser performance.
+
+#### **5. Better source image grouping**
+
+Group by:
+
+    product
+    acquisition date
+    sensor
+
+Especially useful when multiple products are selected.
+
+#### **6. Remember user preference**
+
+Persist:
+
+    imagery overlay mode
+    source opacity
+    last active source image
+
+in localStorage.
+
+This was not added yet to avoid changing current state behavior too much.
+
+---
+
+### **30. Current status**
+
+The source imagery panel is now implemented and tested by the user.
+
+Current status:
+
+    - dedicated imagery panel exists
+    - source imagery removed from legend
+    - panel appears only when COG imagery exists
+    - panel supports full row click
+    - visible checkbox indicator restored
+    - active image opacity defaults to 100%
+    - overlay multiple images mode exists
+    - panel auto-compacts after 5 seconds
+    - manual minus enters compact mode
+    - plus/hover/focus/tap expands panel
+    - active status shown in green
+    - available/selectable status shown in blue/cyan
+    - compact bar no longer shows long image names
+    - compact bar no longer truncates title with ellipsis
+    - compact width is measured to avoid empty space
+    - old title-only collapsed mode removed
+    - responsive/mobile behavior preserved
+    - mobile sidebar hides imagery panel
+    - TIFF fallback links preserved
+    - COG renderer still handles actual imagery tiles
+    - dashboard remains static, browser-native, and zero-build
+
+This update makes the Copernicus source imagery significantly more prominent and useful while preserving the technical architecture introduced in the ES module refactor.
+
+
+
+
+
 **[28 June 2026]-2 — ES module refactor**
 
 This section records the refactor performed on **28 June 2026** after the product-scoped AOI/product/COG work was already functioning.
