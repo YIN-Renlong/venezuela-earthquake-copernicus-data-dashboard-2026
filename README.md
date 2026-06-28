@@ -1307,9 +1307,7 @@ The supplemental translations include product/layer-specific labels such as:
 
 ### **8. `state.js` responsibilities and design decision**
 
-The user explicitly requested that the state model should not be changed at the function-logic level.
-
-Therefore `state.js` is not a new reactive architecture. It is a centralized version of the old global variables.
+The state model should not be changed at the function-logic level. Therefore `state.js` is not a new reactive architecture. It is a centralized version of the old global variables.
 
 It exports one shared `state` object and two helper functions for layer visibility:
 
