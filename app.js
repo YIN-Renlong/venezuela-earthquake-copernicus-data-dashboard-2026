@@ -18,7 +18,7 @@ const COPERNICUS_API_URL =
   "https://rapidmapping.emergency.copernicus.eu/backend/dashboard-api/public-activations/?code=EMSR884";
 
 const COPERNICUS_CACHE_TTL_MS = 30 * 60 * 1000;
-const COPERNICUS_MANIFEST_CACHE_KEY = "emsr884-manifest-cache-v1";
+const COPERNICUS_MANIFEST_CACHE_KEY = "emsr884-manifest-cache-v4-inline-products";
 
 const COPERNICUS_FORCE_REFRESH = (() => {
   const params = new URLSearchParams(window.location.search);
@@ -48,13 +48,16 @@ const CARACAS = {
 const DEFAULT_AOI_NUMBER = 2;
 
 let selectedAoiNumber = getInitialAoiNumber();
+let selectedProductKey = getInitialProductKey();
 let latestAois = [];
+let currentProductOptions = [];
 
 const TRANSPORTATION_LAYER_IDS = [
   "transportation-local-road-line",
   "transportation-track-line",
   "transportation-main-road-line",
   "transportation-highway-line",
+  "transportation-airfield-runway-line",
   "transportation-railway-line",
   "transportation-railway-ticks",
 ];
@@ -129,13 +132,23 @@ const GROUND_MOVEMENT_LAYER_IDS = GROUND_MOVEMENT_CLASSES.flatMap((item) => [
 const DATA_LAYER_IDS = [
   "built-up-fill",
   "built-up-outline",
+  "built-up-point-halo",
+  "built-up-point-circle",
+
+  "facilities-area-fill",
+  "facilities-area-outline",
+
+  "transportation-area-fill",
+  "transportation-area-outline",
+
+  "crisis-point-halo",
+  "crisis-point-circle",
 
   // Legacy layer ids from older versions.
   "transportation-lines",
   "transportation-other-line",
 
   ...TRANSPORTATION_LAYER_IDS,
-
 
   ...GROUND_MOVEMENT_LAYER_IDS,
   "not-analysed-fill",
@@ -152,14 +165,22 @@ const DATA_LAYER_IDS = [
  */
 const COPERNICUS_URL_OVERRIDES = {
   builtUpA: "",
+  builtUpP: "",
   transportationL: "",
+  transportationA: "",
+  facilitiesA: "",
+  ancillaryCrisisInfoP: "",
   notAnalysedA: "",
   groundMovementA: "",
 };
 
 const SOURCE_IDS = {
   builtUpA: "copernicus-built-up-a",
+  builtUpP: "copernicus-built-up-p",
   transportationL: "copernicus-transportation-l",
+  transportationA: "copernicus-transportation-a",
+  facilitiesA: "copernicus-facilities-a",
+  ancillaryCrisisInfoP: "copernicus-ancillary-crisis-info-p",
   notAnalysedA: "copernicus-not-analysed-a",
   groundMovementA: "copernicus-ground-movement-a",
   aoi: "selected-aoi-extent",
@@ -230,8 +251,9 @@ const translations = {
 
     builtBy: "Construido por YIN Renlong · Interfaz no oficial de interés público usando datos públicos de Copernicus EMSR884.",
     issueText: "Si encuentra un problema, visite el proyecto en GitHub.",
-    footerCredit: "Construido por YIN Renlong como interfaz pública no oficial. No recopila datos de rescate, víctimas ni personas desaparecidas. Si encuentra un problema,",
+    footerCredit: "Interfaz pública no oficial. No recopila datos de rescate, víctimas ni personas desaparecidas. Si encuentra un problema,",
     footerGithubLink: "visite el proyecto en GitHub",
+    footerAuthorPrefix: "Construido por",
     footerPeriod: ".",
     loadingTitle: "Cargando datos satelitales",
     loadingText: "Obteniendo capas públicas de Copernicus EMSR884.",
@@ -303,8 +325,9 @@ const translations = {
 
     builtBy: "Built by YIN Renlong · Unofficial public-interest interface using public Copernicus EMSR884 data.",
     issueText: "If you find an issue, please visit the GitHub project.",
-    footerCredit: "Built by YIN Renlong as an unofficial public-interest interface. No rescue, casualty, or missing-person data is collected. If you find an issue,",
+    footerCredit: "Unofficial public interface. No rescue, casualty, or missing-person data is collected. If you find an issue,",
     footerGithubLink: "visit the GitHub project",
+    footerAuthorPrefix: "Built by",
     footerPeriod: ".",
     loadingTitle: "Loading satellite data",
     loadingText: "Fetching Copernicus EMSR884 public layers.",
@@ -376,8 +399,9 @@ const translations = {
 
     builtBy: "Realizzato da YIN Renlong · Interfaccia non ufficiale di interesse pubblico basata su dati pubblici Copernicus EMSR884.",
     issueText: "Se trovi un problema, visita il progetto su GitHub.",
-    footerCredit: "Realizzato da YIN Renlong come interfaccia pubblica non ufficiale. Non vengono raccolti dati su soccorsi, vittime o persone scomparse. Se trovi un problema,",
+    footerCredit: "Interfaccia pubblica non ufficiale. Non vengono raccolti dati su soccorsi, vittime o persone scomparse. Se trovi un problema,",
     footerGithubLink: "visita il progetto su GitHub",
+    footerAuthorPrefix: "Realizzato da",
     footerPeriod: ".",
     loadingTitle: "Caricamento dati satellitari",
     loadingText: "Recupero dei layer pubblici Copernicus EMSR884.",
@@ -448,8 +472,9 @@ const translations = {
 
     builtBy: "由 YIN Renlong 构建 · 使用 Copernicus EMSR884 公共数据的非官方公益界面。",
     issueText: "如果发现问题，请访问 GitHub 项目。",
-    footerCredit: "由 YIN Renlong 构建，作为非官方公益界面。不收集救援、伤亡或失踪人员数据。如发现问题，请",
+    footerCredit: "非官方公益界面。不收集救援、伤亡或失踪人员数据。如发现问题，请",
     footerGithubLink: "访问 GitHub 项目",
+    footerAuthorPrefix: "构建者",
     footerPeriod: "。",
     loadingTitle: "正在加载卫星数据",
     loadingText: "正在获取 Copernicus EMSR884 公共图层。",
@@ -473,13 +498,24 @@ const supplementalTranslations = {
     aoiPlanned: "Planificado / esperando confirmación",
     aoiNotProduced: "No producido",
     aoiProcessing: "Esperando capas públicas",
+    allProducts: "Todos los productos",
     aoiUnavailableTitle: "AOI aún sin capas públicas",
     aoiUnavailableText:
       "Copernicus ya listó esta AOI, pero las capas vectoriales públicas aún no están publicadas. El marcador se activará cuando Copernicus publique los datos.",
 
     builtUpGrading: "Evaluación de edificaciones",
+    builtUpPoints: "Puntos de edificaciones",
     transportationGrading: "Red vial y ferroviaria",
     generalInformation: "Información general",
+    productsTitle: "Productos",
+    builtUpArea: "Área edificada",
+    crisisPoints: "Puntos de crisis",
+    blockedRoadInterruption: "Carretera bloqueada / interrupción",
+    facilitiesArea: "Área de instalaciones",
+    transportationArea: "Área de transporte",
+    airfieldAndHeliportDamaged: "Aeródromo y helipuerto, dañado",
+    sourceImagery: "Imagen fuente de Copernicus",
+    noDisplayableLayers: "No hay capas vectoriales visibles para el producto seleccionado.",
     groundMovementGrading: "Movimiento del terreno",
     groundMovementM: "Movimiento del terreno (m)",
     gmNegHigh: "-0.5 a -0.2",
@@ -495,6 +531,7 @@ const supplementalTranslations = {
     mainRoadNoVisibleDamage: "Vía principal, sin daño visible",
     localRoadNoVisibleDamage: "Vía local, sin daño visible",
     trackNoVisibleDamage: "Camino / pista, sin daño visible",
+    airfieldRunwayNoVisibleDamage: "Pista de aeródromo, sin daño visible",
     railwayNoVisibleDamage: "Ferrocarril / metro, sin daño visible",
     areaOfInterest: "Área de interés",
     collapseLegend: "Contraer leyenda",
@@ -507,13 +544,24 @@ const supplementalTranslations = {
     aoiPlanned: "Planned / waiting confirmation",
     aoiNotProduced: "Not produced",
     aoiProcessing: "Waiting for public layers",
+    allProducts: "All products",
     aoiUnavailableTitle: "AOI public layers not available yet",
     aoiUnavailableText:
       "Copernicus has listed this AOI, but public vector layers are not published yet. This placeholder will become active when Copernicus publishes the data.",
 
     builtUpGrading: "Built Up Grading",
+    builtUpPoints: "Built Up Points",
     transportationGrading: "Road and rail network",
     generalInformation: "General Information",
+    productsTitle: "Products",
+    builtUpArea: "Built Up Area",
+    crisisPoints: "Crisis Points",
+    blockedRoadInterruption: "Blocked road / interruption",
+    facilitiesArea: "Facilities Area",
+    transportationArea: "Transportation Area",
+    airfieldAndHeliportDamaged: "Airfield and Heliport, Damaged",
+    sourceImagery: "Copernicus source imagery",
+    noDisplayableLayers: "No visible vector layers are available for the selected product.",
     groundMovementGrading: "Ground Movement",
     groundMovementM: "Ground Movement (m)",
     gmNegHigh: "-0.5 to -0.2",
@@ -529,6 +577,7 @@ const supplementalTranslations = {
     mainRoadNoVisibleDamage: "Main road, No visible damage",
     localRoadNoVisibleDamage: "Local road, No visible damage",
     trackNoVisibleDamage: "Track, No visible damage",
+    airfieldRunwayNoVisibleDamage: "Airfield runway, No visible damage",
     railwayNoVisibleDamage: "Railway / subway, No visible damage",
     areaOfInterest: "Area of Interest",
     collapseLegend: "Collapse legend",
@@ -541,13 +590,24 @@ const supplementalTranslations = {
     aoiPlanned: "Pianificato / in attesa di conferma",
     aoiNotProduced: "Non prodotto",
     aoiProcessing: "In attesa dei layer pubblici",
+    allProducts: "Tutti i prodotti",
     aoiUnavailableTitle: "Layer pubblici AOI non ancora disponibili",
     aoiUnavailableText:
       "Copernicus ha elencato questa AOI, ma i layer vettoriali pubblici non sono ancora pubblicati. Il segnaposto si attiverà quando Copernicus pubblicherà i dati.",
 
     builtUpGrading: "Valutazione edifici",
+    builtUpPoints: "Punti edificati",
     transportationGrading: "Rete stradale e ferroviaria",
     generalInformation: "Informazioni generali",
+    productsTitle: "Prodotti",
+    builtUpArea: "Area edificata",
+    crisisPoints: "Punti di crisi",
+    blockedRoadInterruption: "Strada bloccata / interruzione",
+    facilitiesArea: "Area delle strutture",
+    transportationArea: "Area di trasporto",
+    airfieldAndHeliportDamaged: "Aeroporto ed eliporto, danneggiato",
+    sourceImagery: "Immagine sorgente Copernicus",
+    noDisplayableLayers: "Non sono disponibili layer vettoriali visibili per il prodotto selezionato.",
     groundMovementGrading: "Movimento del suolo",
     groundMovementM: "Movimento del suolo (m)",
     gmNegHigh: "-0.5 a -0.2",
@@ -563,6 +623,7 @@ const supplementalTranslations = {
     mainRoadNoVisibleDamage: "Strada principale, nessun danno visibile",
     localRoadNoVisibleDamage: "Strada locale, nessun danno visibile",
     trackNoVisibleDamage: "Pista / sentiero, nessun danno visibile",
+    airfieldRunwayNoVisibleDamage: "Pista aeroportuale, nessun danno visibile",
     railwayNoVisibleDamage: "Ferrovia / metro, nessun danno visibile",
     areaOfInterest: "Area di interesse",
     collapseLegend: "Comprimi legenda",
@@ -575,13 +636,24 @@ const supplementalTranslations = {
     aoiPlanned: "已计划 / 等待确认",
     aoiNotProduced: "未生产",
     aoiProcessing: "等待公共图层",
+    allProducts: "全部产品",
     aoiUnavailableTitle: "该 AOI 公共图层尚不可用",
     aoiUnavailableText:
       "Copernicus 已列出该 AOI，但公共矢量图层尚未发布。Copernicus 发布数据后，此占位项会自动变为可用。",
 
     builtUpGrading: "建筑物评估",
+    builtUpPoints: "建筑物点",
     transportationGrading: "道路与铁路网络",
     generalInformation: "一般信息",
+    productsTitle: "产品",
+    builtUpArea: "建筑物面",
+    crisisPoints: "危机点",
+    blockedRoadInterruption: "道路阻断 / 中断",
+    facilitiesArea: "设施面",
+    transportationArea: "交通设施面",
+    airfieldAndHeliportDamaged: "机场与直升机场，受损",
+    sourceImagery: "Copernicus 源影像",
+    noDisplayableLayers: "所选产品没有可显示的矢量图层。",
     groundMovementGrading: "地表位移",
     groundMovementM: "地表位移（米）",
     gmNegHigh: "-0.5 至 -0.2",
@@ -597,6 +669,7 @@ const supplementalTranslations = {
     mainRoadNoVisibleDamage: "主干道，无可见损毁",
     localRoadNoVisibleDamage: "本地道路，无可见损毁",
     trackNoVisibleDamage: "小路 / 便道，无可见损毁",
+    airfieldRunwayNoVisibleDamage: "机场跑道，无可见损毁",
     railwayNoVisibleDamage: "铁路 / 地铁，无可见损毁",
     areaOfInterest: "关注区域",
     collapseLegend: "收起图例",
@@ -631,12 +704,27 @@ const layerVisibility = {
   transportMain: true,
   transportLocal: true,
   transportTrack: true,
+  transportAirfieldRunway: true,
   transportRailway: true,
 
 };
 
+
+function getLayerVisibility(key, defaultValue = true) {
+  if (!Object.prototype.hasOwnProperty.call(layerVisibility, key)) {
+    layerVisibility[key] = defaultValue !== false;
+  }
+
+  return layerVisibility[key] !== false;
+}
+
+function setLayerVisibilityState(key, value) {
+  layerVisibility[key] = Boolean(value);
+}
+
 const loadedSourceMeta = {};
 let latestDataStatusMeta = {};
+let latestSelectedProductInfo = null;
 const els = {};
 
 document.addEventListener("DOMContentLoaded", () => {
@@ -646,6 +734,8 @@ document.addEventListener("DOMContentLoaded", () => {
   els.retry = document.getElementById("retry-btn");
   els.labelsToggle = document.getElementById("satellite-labels-toggle");
   els.aoiList = document.getElementById("aoi-list");
+  els.productPanel = document.getElementById("product-selector-panel");
+  els.productList = document.getElementById("product-list");
 
   els.dataProduct = document.getElementById("data-product");
   els.dataDelivery = document.getElementById("data-delivery");
@@ -798,7 +888,9 @@ function setupUiEvents() {
   if (oldCaracasButton) {
     oldCaracasButton.addEventListener("click", () => {
       selectedAoiNumber = 2;
+      selectedProductKey = "";
       updateAoiUrlParam(2);
+      clearSelectedProductUrlParam();
       closeMobileSidebar();
       loadAoi(2);
     });
@@ -816,9 +908,25 @@ function setupUiEvents() {
       }
 
       selectedAoiNumber = aoiNumber;
+      selectedProductKey = "";
       updateAoiUrlParam(aoiNumber);
+      clearSelectedProductUrlParam();
       closeMobileSidebar();
       loadAoi(aoiNumber);
+    });
+  }
+
+  if (els.productList) {
+    els.productList.addEventListener("click", (event) => {
+      const button = event.target.closest("[data-product-key]");
+      if (!button) return;
+
+      const nextProductKey = String(button.dataset.productKey || "").trim();
+      if (!nextProductKey) return;
+
+      selectedProductKey = nextProductKey;
+      updateSelectedProductUrlParam(nextProductKey);
+      loadAoi(selectedAoiNumber);
     });
   }
 
@@ -861,21 +969,50 @@ function setupBasemapEvents() {
 }
 
 function setupLayerToggleEvents() {
-  document.querySelectorAll("[data-layer-toggle]").forEach((input) => {
-    const key = input.dataset.layerToggle;
+  const legend = document.getElementById("map-legend");
 
-    if (!(key in layerVisibility)) {
+  if (!legend || legend.dataset.toggleDelegated === "1") {
+    return;
+  }
+
+  legend.dataset.toggleDelegated = "1";
+
+  legend.addEventListener("change", (event) => {
+    const input = event.target.closest("[data-layer-toggle]");
+
+    if (!input) {
       return;
     }
 
-    input.checked = Boolean(layerVisibility[key]);
-    input.closest(".legend-toggle")?.classList.toggle("off", !input.checked);
+    const key = String(input.dataset.layerToggle || "").trim();
 
-    input.addEventListener("change", () => {
-      layerVisibility[key] = input.checked;
-      input.closest(".legend-toggle")?.classList.toggle("off", !input.checked);
-      applyLayerVisibility();
-    });
+    if (!key) {
+      return;
+    }
+
+    setLayerVisibilityState(key, input.checked);
+    syncLayerToggleInputs();
+    applyLayerVisibility();
+  });
+
+  syncLayerToggleInputs();
+}
+
+function syncLayerToggleInputs() {
+  document.querySelectorAll("[data-layer-toggle]").forEach((input) => {
+    const key = String(input.dataset.layerToggle || "").trim();
+
+    if (!key) {
+      return;
+    }
+
+    if (!Object.prototype.hasOwnProperty.call(layerVisibility, key)) {
+      layerVisibility[key] = Boolean(input.checked);
+    }
+
+    const checked = Boolean(layerVisibility[key]);
+    input.checked = checked;
+    input.closest(".legend-toggle")?.classList.toggle("off", !checked);
   });
 }
 
@@ -939,6 +1076,14 @@ function applyLanguage(lang) {
   if (latestAois.length && typeof renderAoiList === "function") {
     renderAoiList(latestAois);
   }
+
+  if (currentProductOptions.length && typeof renderProductSelector === "function") {
+    renderProductSelector(currentProductOptions, latestSelectedProductInfo?.product || null);
+  }
+
+  if (latestSelectedProductInfo && typeof renderDynamicLegend === "function") {
+    renderDynamicLegend(latestSelectedProductInfo);
+  }
 }
 
 function t(key) {
@@ -1001,6 +1146,7 @@ async function loadAoi(aoiNumber = selectedAoiNumber) {
   isLoading = true;
 
   latestDataStatusMeta = {};
+  latestSelectedProductInfo = null;
   renderDataStatusPanel();
 
   setStatus("loading", t("loadingTitle"), t("loadingText"), false);
@@ -1009,33 +1155,23 @@ async function loadAoi(aoiNumber = selectedAoiNumber) {
     clearCopernicusDataLayers();
 
     const info = await getCopernicusLayerInfo(selectedAoiNumber);
+    latestSelectedProductInfo = info;
+
     const urls = info.urls || {};
 
     renderAoiList(latestAois);
+    renderProductSelector(info.productOptions || [], info.product || null);
     fitAoiExtent(info.aoi);
     showAoiExtent(info.aoi);
 
-    if (
-      !urls.builtUpA &&
-      !urls.transportationL &&
-      !urls.notAnalysedA &&
-      !urls.groundMovementA
-    ) {
-      setStatus(
-        "error",
-        t("aoiUnavailableTitle"),
-        `${formatAoiLabel(info.aoi)} — ${t("aoiUnavailableText")}`,
-        false
-      );
-      return;
-    }
-
-    // Load in a stable visual order:
-    // coverage below, ground movement, built-up damage, transport on top.
     const layerJobs = [
       ["notAnalysedA", urls.notAnalysedA],
       ["groundMovementA", urls.groundMovementA],
+      ["transportationA", urls.transportationA],
+      ["facilitiesA", urls.facilitiesA],
       ["builtUpA", urls.builtUpA],
+      ["builtUpP", urls.builtUpP],
+      ["ancillaryCrisisInfoP", urls.ancillaryCrisisInfoP],
       ["transportationL", urls.transportationL],
     ].filter((item) => Boolean(item[1]));
 
@@ -1055,13 +1191,28 @@ async function loadAoi(aoiNumber = selectedAoiNumber) {
       (result) => result.status === "fulfilled" && result.value === true
     ).length;
 
-    if (loadedCount === 0) {
-      console.warn("Copernicus layer load results:", results);
-      throw new Error("No usable Copernicus layer loaded.");
-    }
-
     showAoiExtent(info.aoi);
     moveLabelsToTop();
+    renderDynamicLegend(info);
+    applyLayerVisibility();
+
+    if (loadedCount === 0) {
+      console.warn("Copernicus layer load results:", results);
+
+      setStatus(
+        "error",
+        t("aoiUnavailableTitle"),
+        `${formatAoiLabel(info.aoi)} · ${info.product ? getProductLabel(info.product) : ""} — ${t("aoiUnavailableText")}`,
+        false
+      );
+
+      updateDataStatusPanel({
+        successfulLoadTime: "",
+        loadedLayerCount: 0,
+      });
+
+      return;
+    }
 
     updateDataStatusPanel({
       successfulLoadTime: new Date().toISOString(),
@@ -1069,11 +1220,12 @@ async function loadAoi(aoiNumber = selectedAoiNumber) {
     });
 
     renderAoiList(latestAois);
+    renderProductSelector(info.productOptions || [], info.product || null);
 
     setStatus(
       "success",
       t("loadedTitle"),
-      `${formatAoiLabel(info.aoi)} — ${t("loadedText")}`,
+      `${formatAoiLabel(info.aoi)} · ${getProductLabel(info.product)} — ${t("loadedText")}`,
       false
     );
 
@@ -1121,7 +1273,7 @@ function extractLayerUrlsFromProduct(product) {
 
     const key = classifyLayer(`${layer.name || ""} ${jsonUrl}`);
 
-    if (key) {
+    if (key && !urls[key]) {
       urls[key] = jsonUrl;
     }
   }
@@ -1148,8 +1300,16 @@ async function addCopernicusLayer(kind, url) {
 
   if (kind === "builtUpA") {
     addBuiltUpStyleLayers(meta);
+  } else if (kind === "builtUpP") {
+    addBuiltUpPointStyleLayers(meta);
   } else if (kind === "transportationL") {
     addTransportationStyleLayer(meta);
+  } else if (kind === "transportationA") {
+    addTransportationAreaStyleLayers(meta);
+  } else if (kind === "facilitiesA") {
+    addFacilitiesAreaStyleLayers(meta);
+  } else if (kind === "ancillaryCrisisInfoP") {
+    addAncillaryCrisisInfoStyleLayers(meta);
   } else if (kind === "notAnalysedA") {
     addNotAnalysedStyleLayers(meta);
   } else if (kind === "groundMovementA") {
@@ -1180,6 +1340,7 @@ async function ensureCopernicusSource(kind, url) {
 
   if (isGeoJson(json)) {
     const geojson = normalizeGeoJson(json);
+    const featureSummary = summarizeLayerFeatures(kind, geojson.features || []);
 
     map.addSource(sourceId, {
       type: "geojson",
@@ -1194,6 +1355,7 @@ async function ensureCopernicusSource(kind, url) {
       sourceLayer: null,
       url,
       featureCount: Array.isArray(geojson.features) ? geojson.features.length : null,
+      ...featureSummary,
     };
 
     return loadedSourceMeta[sourceId];
@@ -1546,52 +1708,57 @@ async function getCopernicusLayerInfo(aoiNumber = selectedAoiNumber) {
     );
   }
 
-  const layerSelection = collectBestLayerUrlsFromAoi(aoi);
-  const structuredUrls = layerSelection.urls || {};
+  const productOptions = getProductsSortedForAoi(aoi);
+  const product = chooseSelectedProductForAoi(aoi, productOptions);
 
+  if (!product) {
+    updateDataStatusPanel({
+      activationCode: "EMSR884",
+      aoiName: aoi.name || `AOI${String(aoi.number).padStart(2, "0")}`,
+      aoiNumber: aoi.number,
+      lastChecked: manifestInfo.checkedAt,
+      fromCache: manifestInfo.fromCache,
+      cacheStale: manifestInfo.stale,
+      cacheAgeMs: manifestInfo.cacheAgeMs,
+      reportLink: manifest?.results?.[0]?.reportLink || "",
+      productsPath: manifest?.results?.[0]?.productsPath || "",
+    });
+
+    return {
+      manifest,
+      manifestInfo,
+      aoi,
+      product: null,
+      products: [],
+      productOptions,
+      urls: {},
+      cogLayers: [],
+    };
+  }
+
+  selectedProductKey = getProductKey(product);
+
+  const structuredUrls = extractLayerUrlsFromProduct(product);
   const urls = {
     ...structuredUrls,
     ...overrides,
   };
 
-  const productsForStatus = getUniqueProducts(
-    Object.values(layerSelection.productsByLayer || {})
-  );
-
-  const product =
-    choosePrimaryStatusProduct(productsForStatus) ||
-    chooseAoiProduct(aoi);
-
-  const statusProducts = productsForStatus.length
-    ? productsForStatus
-    : product
-      ? [product]
-      : [];
-
-  const singleStatusProduct =
-    statusProducts.length === 1 ? statusProducts[0] : null;
+  const cogLayers = extractCogLayersFromProduct(product, manifest);
 
   updateDataStatusPanel({
     activationCode: "EMSR884",
     aoiName: aoi.name || `AOI${String(aoi.number).padStart(2, "0")}`,
     aoiNumber: aoi.number,
 
-    productId: singleStatusProduct?.id || "",
-    productType: singleStatusProduct?.type || "",
-    productStatus: singleStatusProduct?.version?.statusCode || "",
-    productSummary: formatProductListLabel(statusProducts),
+    productId: product?.id || "",
+    productType: product?.type || "",
+    productStatus: product?.version?.statusCode || "",
+    productSummary: getProductLabel(product),
 
-    deliveryTime:
-      getLatestProductDeliveryTime(statusProducts) ||
-      product?.version?.deliveryTime ||
-      "",
-    expectedDelivery:
-      getLatestProductExpectedDelivery(statusProducts) ||
-      product?.expectedDelivery ||
-      "",
-    acquisitionTime:
-      getLatestAcquisitionTimeFromProducts(statusProducts) ||
-      (product ? getLatestAcquisitionTime(product) : ""),
+    deliveryTime: product?.version?.deliveryTime || "",
+    expectedDelivery: product?.expectedDelivery || "",
+    acquisitionTime: getLatestAcquisitionTime(product),
 
     lastChecked: manifestInfo.checkedAt,
     fromCache: manifestInfo.fromCache,
@@ -1602,17 +1769,20 @@ async function getCopernicusLayerInfo(aoiNumber = selectedAoiNumber) {
     downloadPath: product?.downloadPath || "",
   });
 
-  console.info("Selected Copernicus AOI/layers:", {
+  renderProductSelector(productOptions, product);
+
+  console.info("Selected Copernicus AOI/product/layers:", {
     aoiName: aoi.name,
     aoiNumber: aoi.number,
-    products: statusProducts.map((item) => ({
-      id: item.id,
-      type: item.type,
-      monitoring: item.monitoring,
-      monitoringNumber: item.monitoringNumber,
-      status: item.version?.statusCode,
-    })),
+    product: {
+      id: product.id,
+      type: product.type,
+      monitoring: product.monitoring,
+      monitoringNumber: product.monitoringNumber,
+      status: product.version?.statusCode,
+    },
     urls,
+    cogLayers,
   });
 
   return {
@@ -1620,9 +1790,10 @@ async function getCopernicusLayerInfo(aoiNumber = selectedAoiNumber) {
     manifestInfo,
     aoi,
     product,
-    products: statusProducts,
-    productsByLayer: layerSelection.productsByLayer,
+    products: [product],
+    productOptions,
     urls,
+    cogLayers,
   };
 }
 
@@ -1707,7 +1878,14 @@ function scoreProductForLayerKey(product, key) {
 
   if (key === "groundMovementA") {
     score += product.type === "GRM" ? 520 : 0;
-  } else if (key === "builtUpA" || key === "transportationL") {
+  } else if (
+    key === "builtUpA" ||
+    key === "builtUpP" ||
+    key === "transportationL" ||
+    key === "transportationA" ||
+    key === "facilitiesA" ||
+    key === "ancillaryCrisisInfoP"
+  ) {
     score += product.type === "GRA" ? 520 : 0;
   } else if (key === "notAnalysedA") {
     score += product.type === "GRA" ? 260 : product.type === "GRM" ? 230 : 0;
@@ -1756,6 +1934,7 @@ function collectBestLayerUrlsFromAoi(aoi) {
   const productsByLayer = {};
   const wantedKeys = [
     "builtUpA",
+    "builtUpP",
     "transportationL",
     "notAnalysedA",
     "groundMovementA",
@@ -2074,6 +2253,212 @@ function getInitialAoiNumber() {
   return Number.isFinite(number) ? number : DEFAULT_AOI_NUMBER;
 }
 
+function getInitialProductKey() {
+  const params = new URLSearchParams(window.location.search);
+  return String(params.get("product") || params.get("productId") || "").trim();
+}
+
+function getProductKey(product) {
+  if (!product) {
+    return "";
+  }
+
+  if (product.id !== undefined && product.id !== null) {
+    return String(product.id);
+  }
+
+  return [
+    product.type || "product",
+    product.monitoring ? `monitoring-${product.monitoringNumber || 0}` : "base",
+    product.expectedDelivery || "",
+    product.version?.deliveryTime || "",
+  ].join(":");
+}
+
+function updateSelectedProductUrlParam(productKey) {
+  if (!window.history?.replaceState) {
+    return;
+  }
+
+  const url = new URL(window.location.href);
+
+  if (productKey) {
+    url.searchParams.set("product", String(productKey));
+  } else {
+    url.searchParams.delete("product");
+    url.searchParams.delete("productId");
+  }
+
+  window.history.replaceState({}, document.title, `${url.pathname}${url.search}${url.hash}`);
+}
+
+function clearSelectedProductUrlParam() {
+  updateSelectedProductUrlParam("");
+}
+
+function getProductsSortedForAoi(aoi) {
+  const products = Array.isArray(aoi?.products) ? aoi.products.slice() : [];
+
+  return products.sort((a, b) => scoreProductForCard(b) - scoreProductForCard(a));
+}
+
+function chooseSelectedProductForAoi(aoi, products = getProductsSortedForAoi(aoi)) {
+  if (selectedProductKey) {
+    const matching = products.find((product) => getProductKey(product) === selectedProductKey);
+
+    if (matching) {
+      return matching;
+    }
+  }
+
+  return products[0] || null;
+}
+
+function renderProductSelector(products = currentProductOptions, selectedProduct = latestSelectedProductInfo?.product || null) {
+  if (!els.productPanel || !els.productList) {
+    return;
+  }
+
+  currentProductOptions = Array.isArray(products) ? products : [];
+
+  if (currentProductOptions.length <= 1) {
+    els.productPanel.classList.add("hidden");
+    els.productList.innerHTML = "";
+    return;
+  }
+
+  els.productPanel.classList.remove("hidden");
+
+  const selectedKey = getProductKey(selectedProduct);
+
+  els.productList.innerHTML = currentProductOptions
+    .map((product) => {
+      const productKey = getProductKey(product);
+      const available = productHasUsefulLayers(product);
+      const selected = productKey === selectedKey;
+      const statusCode = product?.version?.statusCode || "";
+      const dotClass = available ? "green" : statusCode === "N" ? "red" : "amber";
+      const classes = [
+        "product-card",
+        selected ? "active-product" : "",
+        available ? "" : "disabled-product",
+      ]
+        .filter(Boolean)
+        .join(" ");
+
+      const title = getProductLabel(product);
+      const situation = formatProductSituationLabel(product);
+      const status = getAoiCardStatusText(product, available);
+
+      return `
+        <button
+          class="${classes}"
+          type="button"
+          data-product-key="${escapeHtml(productKey)}"
+        >
+          <span class="status-dot ${dotClass}" aria-hidden="true"></span>
+          <span>
+            <strong>${escapeHtml(title)}</strong>
+            <small>${escapeHtml(status)}${situation ? ` · ${escapeHtml(situation)}` : ""}</small>
+          </span>
+        </button>
+      `;
+    })
+    .join("");
+}
+
+function formatProductSituationLabel(product) {
+  const acquisition = getLatestAcquisitionTime(product || {});
+  const time = acquisition || product?.version?.deliveryTime || product?.expectedDelivery || "";
+
+  if (!time) {
+    return "";
+  }
+
+  return formatUtcDateLabel(time);
+}
+
+function formatUtcDateLabel(value) {
+  const date = new Date(value);
+
+  if (!Number.isFinite(date.getTime())) {
+    return String(value || "");
+  }
+
+  const pad = (number) => String(number).padStart(2, "0");
+
+  return `${pad(date.getUTCDate())}/${pad(date.getUTCMonth() + 1)}/${date.getUTCFullYear()}, ${pad(date.getUTCHours())}:${pad(date.getUTCMinutes())} (UTC)`;
+}
+
+function getAwsBucketFromManifest(manifest) {
+  return (
+    manifest?.results?.[0]?.aws_bucket ||
+    "https://rapidmapping-viewer.s3.eu-west-1.amazonaws.com"
+  ).replace(/\/+$/, "");
+}
+
+function resolveCopernicusAssetUrl(pathOrUrl, manifest) {
+  const value = String(pathOrUrl || "").trim();
+
+  if (!value) {
+    return "";
+  }
+
+  if (/^https?:\/\//i.test(value)) {
+    return value;
+  }
+
+  return `${getAwsBucketFromManifest(manifest)}/${value.replace(/^\/+/, "")}`;
+}
+
+function matchImageForCogLayer(product, layer, fallbackIndex = 0) {
+  const images = Array.isArray(product?.images) ? product.images : [];
+  const layerName = String(layer?.name || "").toLowerCase();
+
+  const matching = images.find((image) => {
+    const fileName = String(image?.fileName || "").toLowerCase();
+    if (!fileName) return false;
+
+    const stem = fileName.replace(/\.tif+$/i, "").replace(/_ortho$/i, "");
+    return layerName.includes(stem) || layerName.includes(fileName.replace(/\.tif+$/i, ""));
+  });
+
+  return matching || images[fallbackIndex] || images[0] || {};
+}
+
+function formatImageLayerLabel(image, layer) {
+  const sensor = image?.sensorName || image?.sensorType || "Source image";
+  const time = image?.acquisitionTime ? formatUtcDateLabel(image.acquisitionTime) : "";
+
+  if (time) {
+    return `${sensor} - ${time}`;
+  }
+
+  const name = String(layer?.name || image?.fileName || "").split("/").pop() || sensor;
+  return name.replace(/_cog\.tif$/i, ".tif");
+}
+
+function extractCogLayersFromProduct(product, manifest) {
+  const layers = Array.isArray(product?.layers) ? product.layers : [];
+
+  return layers
+    .filter((layer) => {
+      const name = String(layer?.name || "");
+      return String(layer?.format || "").toLowerCase() === "cog" || /\.tif(f)?$/i.test(name);
+    })
+    .map((layer, index) => {
+      const image = matchImageForCogLayer(product, layer, index);
+      return {
+        url: resolveCopernicusAssetUrl(layer.name, manifest),
+        label: formatImageLayerLabel(image, layer),
+        sensorName: image?.sensorName || "",
+        acquisitionTime: image?.acquisitionTime || "",
+        layerName: layer.name || "",
+      };
+    })
+    .filter((item) => Boolean(item.url));
+}
+
 function updateAoiUrlParam(aoiNumber) {
   if (!window.history?.replaceState) {
     return;
@@ -2291,6 +2676,344 @@ function summarizeJson(json, url) {
       : null,
     featureCount: Array.isArray(json?.features) ? json.features.length : null,
   };
+}
+
+const DAMAGE_PROPERTY_FIELDS = [
+  "damage_gra",
+  "damage_grade",
+  "Damage_Grade",
+  "DAMAGE_GRA",
+  "damage",
+  "Damage",
+];
+
+function readFirstTextProperty(properties, fields) {
+  const props = properties || {};
+
+  for (const field of fields || []) {
+    const value = props[field];
+
+    if (value !== undefined && value !== null && String(value).trim() !== "") {
+      return String(value).trim();
+    }
+  }
+
+  return "";
+}
+
+function normalizeSummaryText(value) {
+  return String(value || "").toLowerCase().trim();
+}
+
+function canonicalDamageClassFromText(value) {
+  const lower = normalizeSummaryText(value);
+
+  if (
+    !lower ||
+    lower.includes("no visible") ||
+    lower.includes("no damage") ||
+    lower.includes("not damaged") ||
+    lower.includes("not analys") ||
+    lower.includes("not analyz")
+  ) {
+    return "";
+  }
+
+  if (
+    lower.includes("destroy") ||
+    lower.includes("destruid") ||
+    lower.includes("destru")
+  ) {
+    return "destroyed";
+  }
+
+  if (
+    lower.includes("possible") ||
+    lower.includes("possibly") ||
+    lower.includes("posible")
+  ) {
+    return "possible";
+  }
+
+  if (
+    lower.includes("damag") ||
+    lower.includes("dañ") ||
+    lower.includes("danno")
+  ) {
+    return "damaged";
+  }
+
+  return "";
+}
+
+function canonicalDamageClassFromProperties(properties) {
+  return canonicalDamageClassFromText(
+    readFirstTextProperty(properties, DAMAGE_PROPERTY_FIELDS)
+  );
+}
+
+function lowerProperty(properties, field) {
+  return normalizeSummaryText((properties || {})[field]);
+}
+
+function allPropertiesText(properties) {
+  return Object.entries(properties || {})
+    .map(([key, value]) => `${key}:${value ?? ""}`)
+    .join(" ")
+    .toLowerCase();
+}
+
+function includesAnyText(text, tokens) {
+  return (tokens || []).some((token) => text.includes(token));
+}
+
+function transportationNoVisibleDamageFromProperties(properties) {
+  const damage = normalizeSummaryText(
+    readFirstTextProperty(properties, DAMAGE_PROPERTY_FIELDS)
+  );
+
+  if (!damage) {
+    return true;
+  }
+
+  if (damage.includes("not analys") || damage.includes("not analyz")) {
+    return false;
+  }
+
+  return (
+    damage.includes("no visible damage") ||
+    damage.includes("no damage") ||
+    damage.includes("not damaged")
+  );
+}
+
+function classifyTransportationPropertiesForLegend(properties) {
+  if (!transportationNoVisibleDamageFromProperties(properties)) {
+    return "";
+  }
+
+  const simplified = lowerProperty(properties, "simplified");
+  const info = lowerProperty(properties, "info");
+  const objType = lowerProperty(properties, "obj_type");
+  const fallback = allPropertiesText(properties);
+
+  const highway =
+    simplified === "highway" ||
+    info.includes("2111-highways") ||
+    info.includes("2111-highway") ||
+    info.includes("highways") ||
+    includesAnyText(fallback, [
+      "motorway",
+      "freeway",
+      "expressway",
+      "autopista",
+      "trunk",
+      "highway, no visible",
+      "highway no visible",
+      "highway - no visible",
+    ]);
+
+  const main =
+    simplified === "main roads" ||
+    simplified === "main road" ||
+    info.includes("21120-primary road") ||
+    info.includes("21121-secondary road") ||
+    info.includes("primary road") ||
+    info.includes("secondary road") ||
+    includesAnyText(fallback, [
+      "main road",
+      "mainroad",
+      "primary",
+      "secondary",
+      "major road",
+      "arterial",
+      "principal",
+    ]);
+
+  const local =
+    simplified === "local roads" ||
+    simplified === "local road" ||
+    info.includes("21122-local road") ||
+    info.includes("local road") ||
+    includesAnyText(fallback, [
+      "local road",
+      "localroad",
+      "residential",
+      "tertiary",
+      "unclassified",
+      "service road",
+      "minor road",
+      "street",
+      "calle",
+    ]);
+
+  const airfieldRunway =
+    simplified === "airfield runways" ||
+    simplified === "airfield runway" ||
+    simplified === "runways" ||
+    simplified === "runway" ||
+    info.includes("2131-airfield runway") ||
+    info.includes("2131-airfield runways") ||
+    info.includes("airfield runway") ||
+    info.includes("runway") ||
+    objType.includes("213-air transport") ||
+    includesAnyText(fallback, [
+      "airfield runway",
+      "airfield runways",
+      "airport runway",
+      "aerodrome runway",
+      "runway",
+      "airstrip",
+      "pista de aterrizaje",
+    ]);
+
+  const track =
+    simplified === "tracks" ||
+    simplified === "track" ||
+    info.includes("21124-cart track") ||
+    info.includes("cart track") ||
+    includesAnyText(fallback, [
+      "track",
+      "dirt road",
+      "unpaved",
+      "path",
+      "trail",
+      "camino",
+      "pista",
+    ]);
+
+  const railway =
+    simplified === "railways" ||
+    simplified === "railway" ||
+    simplified === "subways" ||
+    simplified === "subway" ||
+    info.includes("2121-long-distance railways") ||
+    info.includes("21221-subway") ||
+    info.includes("railways") ||
+    info.includes("railway") ||
+    info.includes("subway") ||
+    objType.includes("212-railways") ||
+    includesAnyText(fallback, [
+      "railway",
+      "railroad",
+      "rail road",
+      "rail line",
+      "rail_line",
+      "ferrocarril",
+      "subway",
+      "metro",
+      "train",
+    ]);
+
+  if (highway) return "highway";
+  if (main) return "main";
+  if (airfieldRunway) return "airfieldRunway";
+  if (track) return "track";
+  if (railway) return "railway";
+  if (local) return "local";
+
+  return "local";
+}
+
+function classifyAncillaryCrisisPropertiesForLegend(properties) {
+  const text = allPropertiesText(properties);
+
+  if (
+    text.includes("blocked road") ||
+    text.includes("blocked-road") ||
+    text.includes("road block") ||
+    text.includes("interruption") ||
+    text.includes("blocked")
+  ) {
+    return "blockedRoadInterruption";
+  }
+
+  return "blockedRoadInterruption";
+}
+
+function classifyTransportationAreaPropertiesForLegend(properties) {
+  const text = allPropertiesText(properties);
+
+  if (
+    text.includes("airfield") ||
+    text.includes("heliport") ||
+    text.includes("helipad") ||
+    text.includes("runway") ||
+    text.includes("airport")
+  ) {
+    return "airfieldAndHeliportDamaged";
+  }
+
+  return "airfieldAndHeliportDamaged";
+}
+
+function summarizeLayerFeatures(kind, features) {
+  const list = Array.isArray(features) ? features : [];
+  const summary = {};
+
+  if (kind === "builtUpA" || kind === "builtUpP" || kind === "facilitiesA") {
+    const damageClasses = new Set();
+
+    list.forEach((feature) => {
+      const damageClass = canonicalDamageClassFromProperties(feature?.properties || {});
+
+      if (damageClass) {
+        damageClasses.add(damageClass);
+      }
+    });
+
+    summary.damageClasses = Array.from(damageClasses);
+  }
+
+  if (kind === "transportationL") {
+    const transportClasses = new Set();
+
+    list.forEach((feature) => {
+      const transportClass = classifyTransportationPropertiesForLegend(
+        feature?.properties || {}
+      );
+
+      if (transportClass) {
+        transportClasses.add(transportClass);
+      }
+    });
+
+    summary.transportClasses = Array.from(transportClasses);
+  }
+
+  if (kind === "transportationA") {
+    const transportAreaClasses = new Set();
+
+    list.forEach((feature) => {
+      const className = classifyTransportationAreaPropertiesForLegend(
+        feature?.properties || {}
+      );
+
+      if (className) {
+        transportAreaClasses.add(className);
+      }
+    });
+
+    summary.transportAreaClasses = Array.from(transportAreaClasses);
+  }
+
+  if (kind === "ancillaryCrisisInfoP") {
+    const crisisClasses = new Set();
+
+    list.forEach((feature) => {
+      const className = classifyAncillaryCrisisPropertiesForLegend(
+        feature?.properties || {}
+      );
+
+      if (className) {
+        crisisClasses.add(className);
+      }
+    });
+
+    summary.crisisClasses = Array.from(crisisClasses);
+  }
+
+  return summary;
 }
 
 function damageTextExpression() {
@@ -2520,6 +3243,28 @@ function transportationClassFilter(kind) {
     ]),
   ];
 
+  const airfieldRunway = [
+    "any",
+    ["==", simplified, "airfield runways"],
+    ["==", simplified, "airfield runway"],
+    ["==", simplified, "runways"],
+    ["==", simplified, "runway"],
+    containsTextExpression(info, "2131-airfield runway"),
+    containsTextExpression(info, "2131-airfield runways"),
+    containsTextExpression(info, "airfield runway"),
+    containsTextExpression(info, "runway"),
+    containsTextExpression(objType, "213-air transport"),
+    anyContainsTextExpression(fallback, [
+      "airfield runway",
+      "airfield runways",
+      "airport runway",
+      "aerodrome runway",
+      "runway",
+      "airstrip",
+      "pista de aterrizaje",
+    ]),
+  ];
+
   const track = [
     "any",
     ["==", simplified, "tracks"],
@@ -2539,21 +3284,16 @@ function transportationClassFilter(kind) {
 
   const railway = [
     "any",
-
-    // AOI02 has both Railways and Subways.
     ["==", simplified, "railways"],
     ["==", simplified, "railway"],
     ["==", simplified, "subways"],
     ["==", simplified, "subway"],
-
     containsTextExpression(info, "2121-long-distance railways"),
     containsTextExpression(info, "21221-subway"),
     containsTextExpression(info, "railways"),
     containsTextExpression(info, "railway"),
     containsTextExpression(info, "subway"),
-
     containsTextExpression(objType, "212-railways"),
-
     anyContainsTextExpression(fallback, [
       "railway",
       "railroad",
@@ -2567,7 +3307,7 @@ function transportationClassFilter(kind) {
     ]),
   ];
 
-  const known = ["any", highway, main, local, track, railway];
+  const known = ["any", highway, main, local, track, airfieldRunway, railway];
   const noVisibleDamage = transportationNoVisibleDamageExpression();
 
   if (kind === "highway") {
@@ -2581,6 +3321,7 @@ function transportationClassFilter(kind) {
       notExpression(highway),
       notExpression(railway),
       notExpression(track),
+      notExpression(airfieldRunway),
       main,
     ];
   }
@@ -2591,8 +3332,13 @@ function transportationClassFilter(kind) {
       noVisibleDamage,
       notExpression(highway),
       notExpression(railway),
+      notExpression(airfieldRunway),
       track,
     ];
+  }
+
+  if (kind === "airfieldRunway") {
+    return ["all", noVisibleDamage, airfieldRunway];
   }
 
   if (kind === "railway") {
@@ -2606,21 +3352,17 @@ function transportationClassFilter(kind) {
       notExpression(highway),
       notExpression(main),
       notExpression(track),
+      notExpression(airfieldRunway),
       notExpression(railway),
       [
         "any",
-
-        // Exact local-road class.
         local,
-
-        // Safe fallback: unknown road/transport lines become gray local roads,
-        // never pink highways.
         notExpression(known),
       ],
     ];
   }
 
-  return ["==", ["get", "__never_show_this__"], "__hidden__"];
+  return hiddenDamageExpression();
 }
 
 function lineWidthExpression(z9, z12, z16) {
@@ -2816,40 +3558,390 @@ function setLegendElementsVisible(selector, visible) {
   });
 }
 
-function updateLegendAvailability() {
-  const hasBuiltUp = hasAnyMapLayer(["built-up-fill", "built-up-outline"]);
-  const hasTransportation = hasAnyMapLayer(TRANSPORTATION_LAYER_IDS);
-  const hasGroundMovement = hasAnyMapLayer(GROUND_MOVEMENT_LAYER_IDS);
-  const hasNotAnalysed = hasAnyMapLayer([
+function getLoadedSourceMeta(kind) {
+  return loadedSourceMeta[SOURCE_IDS[kind]] || null;
+}
+
+function shouldShowBuiltUpDamageRow(kind, damageKind, hasLayer) {
+  if (!hasLayer) {
+    return false;
+  }
+
+  const classes = getLoadedSourceMeta(kind)?.damageClasses;
+
+  // Vector-tile TileJSON sources usually do not expose value counts. Keep
+  // classes visible when the source schema is unknown.
+  if (!Array.isArray(classes)) {
+    return true;
+  }
+
+  return classes.includes(damageKind);
+}
+
+function shouldShowTransportClassRow(classKey, hasTransportation) {
+  if (!hasTransportation) {
+    return false;
+  }
+
+  const classes = getLoadedSourceMeta("transportationL")?.transportClasses;
+
+  // For vector-tile sources without class summaries, keep rows visible.
+  if (!Array.isArray(classes)) {
+    return true;
+  }
+
+  return classes.includes(classKey);
+}
+
+function getLoadedSourceMeta(kind) {
+  return loadedSourceMeta[SOURCE_IDS[kind]] || null;
+}
+
+function orderedDamageClasses(classes) {
+  const order = ["destroyed", "damaged", "possible"];
+
+  if (!Array.isArray(classes)) {
+    return order;
+  }
+
+  return order.filter((item) => classes.includes(item));
+}
+
+function getDamageClassesForLegend(kind) {
+  const meta = getLoadedSourceMeta(kind);
+
+  if (!meta) {
+    return [];
+  }
+
+  if (Array.isArray(meta.damageClasses)) {
+    return orderedDamageClasses(meta.damageClasses);
+  }
+
+  return ["destroyed", "damaged", "possible"];
+}
+
+function getTransportClassesForLegend() {
+  const meta = getLoadedSourceMeta("transportationL");
+  const order = ["highway", "main", "local", "track", "airfieldRunway", "railway"];
+
+  if (!meta) {
+    return [];
+  }
+
+  if (Array.isArray(meta.transportClasses)) {
+    return order.filter((item) => meta.transportClasses.includes(item));
+  }
+
+  return order;
+}
+
+function getTransportAreaClassesForLegend() {
+  const meta = getLoadedSourceMeta("transportationA");
+
+  if (!meta) {
+    return [];
+  }
+
+  if (Array.isArray(meta.transportAreaClasses)) {
+    return ["airfieldAndHeliportDamaged"].filter((item) =>
+      meta.transportAreaClasses.includes(item)
+    );
+  }
+
+  return ["airfieldAndHeliportDamaged"];
+}
+
+function getCrisisClassesForLegend() {
+  const meta = getLoadedSourceMeta("ancillaryCrisisInfoP");
+
+  if (!meta) {
+    return [];
+  }
+
+  if (Array.isArray(meta.crisisClasses)) {
+    return ["blockedRoadInterruption"].filter((item) =>
+      meta.crisisClasses.includes(item)
+    );
+  }
+
+  return ["blockedRoadInterruption"];
+}
+
+function damageClassLabel(className) {
+  if (className === "destroyed") return t("destroyed");
+  if (className === "damaged") return t("confirmedDamaged");
+  if (className === "possible") return t("possiblyDamaged");
+  return className;
+}
+
+function damageSwatchClass(className, geometry = "area") {
+  if (geometry === "point") {
+    return `point-swatch ${className}`;
+  }
+
+  return `swatch ${className}`;
+}
+
+function renderToggleRow({ key, swatchHtml, label, checked = true, extraClass = "" }) {
+  const isChecked = getLayerVisibility(key, checked);
+
+  return `
+    <label class="map-legend-row legend-toggle ${escapeHtml(extraClass)}">
+      <input class="layer-checkbox" type="checkbox" data-layer-toggle="${escapeHtml(key)}" ${isChecked ? "checked" : ""} />
+      ${swatchHtml}
+      <span>${escapeHtml(label)}</span>
+    </label>
+  `;
+}
+
+function renderLegendSection(title, rowsHtml) {
+  const rows = Array.isArray(rowsHtml) ? rowsHtml.filter(Boolean).join("") : String(rowsHtml || "");
+
+  if (!rows.trim()) {
+    return "";
+  }
+
+  return `
+    <div class="legend-section">
+      <div class="legend-section-title">${escapeHtml(title)}</div>
+      ${rows}
+    </div>
+  `;
+}
+
+function renderDamageLegendSection(kind, title, geometry = "area") {
+  const classes = getDamageClassesForLegend(kind);
+
+  if (!classes.length) {
+    return "";
+  }
+
+  const rows = classes.map((className) => {
+    const key = `${kind}:${className}`;
+    const swatchClass = damageSwatchClass(className, geometry);
+
+    return renderToggleRow({
+      key,
+      swatchHtml: `<span class="${escapeHtml(swatchClass)}"></span>`,
+      label: damageClassLabel(className),
+      checked: true,
+    });
+  });
+
+  return renderLegendSection(title, rows);
+}
+
+function renderTransportLegendSection() {
+  const classes = getTransportClassesForLegend();
+
+  if (!classes.length) {
+    return "";
+  }
+
+  const labels = {
+    highway: t("highwayNoVisibleDamage"),
+    main: t("mainRoadNoVisibleDamage"),
+    local: t("localRoadNoVisibleDamage"),
+    track: t("trackNoVisibleDamage"),
+    airfieldRunway: t("airfieldRunwayNoVisibleDamage"),
+    railway: t("railwayNoVisibleDamage"),
+  };
+
+  const swatches = {
+    highway: "highway",
+    main: "main-road",
+    local: "local-road",
+    track: "track",
+    airfieldRunway: "runway",
+    railway: "railway",
+  };
+
+  const rows = classes.map((className) =>
+    renderToggleRow({
+      key: `transportationL:${className}`,
+      swatchHtml: `<span class="line-swatch ${escapeHtml(swatches[className] || "local-road")}"></span>`,
+      label: labels[className] || className,
+      checked: true,
+      extraClass: "transport-toggle",
+    })
+  );
+
+  return renderLegendSection(t("transportationGrading"), rows);
+}
+
+function renderTransportationAreaLegendSection() {
+  const classes = getTransportAreaClassesForLegend();
+
+  if (!classes.length) {
+    return "";
+  }
+
+  const rows = classes.map((className) =>
+    renderToggleRow({
+      key: `transportationA:${className}`,
+      swatchHtml: '<span class="area-swatch transport-area-damaged"></span>',
+      label: t("airfieldAndHeliportDamaged"),
+      checked: true,
+    })
+  );
+
+  return renderLegendSection(t("transportationArea"), rows);
+}
+
+function renderCrisisLegendSection() {
+  const classes = getCrisisClassesForLegend();
+
+  if (!classes.length) {
+    return "";
+  }
+
+  const rows = classes.map((className) =>
+    renderToggleRow({
+      key: `ancillaryCrisisInfoP:${className}`,
+      swatchHtml: '<span class="crisis-swatch"></span>',
+      label: t("blockedRoadInterruption"),
+      checked: true,
+    })
+  );
+
+  return renderLegendSection(t("crisisPoints"), rows);
+}
+
+function renderFacilitiesLegendSection() {
+  const classes = getDamageClassesForLegend("facilitiesA");
+
+  if (!classes.length) {
+    return "";
+  }
+
+  const rows = classes.map((className) => {
+    const swatch =
+      className === "possible"
+        ? '<span class="area-swatch facility-possible"></span>'
+        : '<span class="area-swatch facility-damaged"></span>';
+
+    return renderToggleRow({
+      key: `facilitiesA:${className}`,
+      swatchHtml: swatch,
+      label: damageClassLabel(className),
+      checked: true,
+    });
+  });
+
+  return renderLegendSection(t("facilitiesArea"), rows);
+}
+
+function renderNotAnalysedLegendSection() {
+  if (!hasAnyMapLayer([
     "not-analysed-fill",
     "not-analysed-hatch-fill",
     "not-analysed-outline",
-  ]);
-  const hasAoi = hasAnyMapLayer(AOI_LAYER_IDS);
+  ])) {
+    return "";
+  }
 
-  setLegendElementsVisible('[data-legend-row="builtUp"]', hasBuiltUp);
-  setLegendElementsVisible('[data-legend-row="transportation"]', hasTransportation);
-  setLegendElementsVisible('[data-legend-row="groundMovement"]', hasGroundMovement);
-  setLegendElementsVisible('[data-legend-row="notAnalysed"]', hasNotAnalysed);
-  setLegendElementsVisible('[data-legend-row="aoi"]', hasAoi);
+  return renderLegendSection(
+    t("notAnalysed"),
+    renderToggleRow({
+      key: "notAnalysedA:default",
+      swatchHtml: '<span class="swatch hatch"></span>',
+      label: t("notAnalysed"),
+      checked: false,
+    })
+  );
+}
 
-  // Keep the original built-up/coverage section visible if not-analysed exists.
-  setLegendElementsVisible(
-    '[data-legend-section="builtUp"]',
-    hasBuiltUp || hasNotAnalysed
+function renderGroundMovementLegendSection() {
+  if (!hasAnyMapLayer(GROUND_MOVEMENT_LAYER_IDS)) {
+    return "";
+  }
+
+  const rows = [
+    `<div class="legend-subtitle">${escapeHtml(t("groundMovementM"))}</div>`,
+    ...GROUND_MOVEMENT_CLASSES.map((item) =>
+      renderToggleRow({
+        key: `groundMovementA:${item.key}`,
+        swatchHtml: `<span class="ground-swatch gm-${escapeHtml(item.id)}"></span>`,
+        label: t(item.key.replace(/^ground/, "gm")) === item.key.replace(/^ground/, "gm")
+          ? item.value
+          : t(item.key.replace(/^ground/, "gm")),
+        checked: true,
+      })
+    ),
+  ];
+
+  return renderLegendSection(t("groundMovementGrading"), rows);
+}
+
+function renderSourceImageryLegendSection(info) {
+  const cogs = Array.isArray(info?.cogLayers) ? info.cogLayers : [];
+
+  if (!cogs.length) {
+    return "";
+  }
+
+  const rows = cogs
+    .map((item) => {
+      return `
+        <div class="map-legend-row">
+          <span class="image-swatch"></span>
+          <a class="image-legend-link" href="${escapeHtml(item.url)}" target="_blank" rel="noopener noreferrer">${escapeHtml(item.label)}</a>
+        </div>
+      `;
+    })
+    .join("");
+
+  return renderLegendSection(t("sourceImagery"), rows);
+}
+
+function renderAoiLegendSection() {
+  if (!hasAnyMapLayer(AOI_LAYER_IDS)) {
+    return "";
+  }
+
+  return renderLegendSection(
+    t("generalInformation"),
+    renderToggleRow({
+      key: "aoi:default",
+      swatchHtml: '<span class="aoi-swatch"></span>',
+      label: t("areaOfInterest"),
+      checked: true,
+    })
   );
-  setLegendElementsVisible(
-    '[data-legend-section="transportation"]',
-    hasTransportation
-  );
-  setLegendElementsVisible(
-    '[data-legend-section="groundMovement"]',
-    hasGroundMovement
-  );
-  setLegendElementsVisible(
-    '[data-legend-section="general"]',
-    hasAoi
-  );
+}
+
+function renderDynamicLegend(info = latestSelectedProductInfo) {
+  const body = document.querySelector("#map-legend .map-legend-body");
+
+  if (!body) {
+    return;
+  }
+
+  const sections = [
+    renderCrisisLegendSection(),
+    renderDamageLegendSection("builtUpP", t("builtUpPoints"), "point"),
+    renderDamageLegendSection("builtUpA", t("builtUpArea"), "area"),
+    renderTransportLegendSection(),
+    renderNotAnalysedLegendSection(),
+    renderFacilitiesLegendSection(),
+    renderTransportationAreaLegendSection(),
+    renderGroundMovementLegendSection(),
+    renderSourceImageryLegendSection(info || {}),
+    renderAoiLegendSection(),
+  ].filter(Boolean);
+
+  if (!sections.length) {
+    body.innerHTML = `<div class="map-legend-placeholder">${escapeHtml(t("noDisplayableLayers"))}</div>`;
+  } else {
+    body.innerHTML = sections.join("");
+  }
+
+  syncLayerToggleInputs();
+}
+
+function updateLegendAvailability() {
+  syncLayerToggleInputs();
 }
 
 function addBuiltUpStyleLayers(meta) {
@@ -2861,7 +3953,7 @@ function addBuiltUpStyleLayers(meta) {
         id: "built-up-fill",
         type: "fill",
         source: SOURCE_IDS.builtUpA,
-        filter: damageFilterExpression(),
+        filter: buildDamageLayerFilterForKind("builtUpA"),
         paint: {
           "fill-color": color,
           "fill-opacity": 0.78,
@@ -2877,7 +3969,7 @@ function addBuiltUpStyleLayers(meta) {
         id: "built-up-outline",
         type: "line",
         source: SOURCE_IDS.builtUpA,
-        filter: damageFilterExpression(),
+        filter: buildDamageLayerFilterForKind("builtUpA"),
         paint: {
           "line-color": color,
           "line-opacity": 0.95,
@@ -2892,6 +3984,203 @@ function addBuiltUpStyleLayers(meta) {
             16,
             2.4,
           ],
+        },
+      },
+      meta
+    )
+  );
+}
+
+function addBuiltUpPointStyleLayers(meta) {
+  const color = damageColorExpression();
+  const filter = buildDamageLayerFilterForKind("builtUpP");
+
+  addOrReplaceDataLayer(
+    withOptionalSourceLayer(
+      {
+        id: "built-up-point-halo",
+        type: "circle",
+        source: SOURCE_IDS.builtUpP,
+        filter,
+        paint: {
+          "circle-color": "rgba(255, 255, 255, 0.92)",
+          "circle-opacity": 0.78,
+          "circle-radius": [
+            "interpolate",
+            ["linear"],
+            ["zoom"],
+            10,
+            4.5,
+            13,
+            6.8,
+            16,
+            10.5,
+          ],
+          "circle-stroke-color": "rgba(0, 0, 0, 0.58)",
+          "circle-stroke-width": 1,
+        },
+      },
+      meta
+    )
+  );
+
+  addOrReplaceDataLayer(
+    withOptionalSourceLayer(
+      {
+        id: "built-up-point-circle",
+        type: "circle",
+        source: SOURCE_IDS.builtUpP,
+        filter,
+        paint: {
+          "circle-color": color,
+          "circle-opacity": 0.98,
+          "circle-radius": [
+            "interpolate",
+            ["linear"],
+            ["zoom"],
+            10,
+            3.2,
+            13,
+            5,
+            16,
+            8.2,
+          ],
+          "circle-stroke-color": "rgba(255, 255, 255, 0.95)",
+          "circle-stroke-width": 1.1,
+        },
+      },
+      meta
+    )
+  );
+}
+
+function addFacilitiesAreaStyleLayers(meta) {
+  const color = damageColorExpression();
+
+  addOrReplaceDataLayer(
+    withOptionalSourceLayer(
+      {
+        id: "facilities-area-fill",
+        type: "fill",
+        source: SOURCE_IDS.facilitiesA,
+        filter: buildDamageLayerFilterForKind("facilitiesA"),
+        paint: {
+          "fill-color": color,
+          "fill-opacity": 0.55,
+          "fill-outline-color": "rgba(255, 0, 255, 0.9)",
+        },
+      },
+      meta
+    )
+  );
+
+  addOrReplaceDataLayer(
+    withOptionalSourceLayer(
+      {
+        id: "facilities-area-outline",
+        type: "line",
+        source: SOURCE_IDS.facilitiesA,
+        filter: buildDamageLayerFilterForKind("facilitiesA"),
+        paint: {
+          "line-color": "rgba(255, 0, 255, 0.95)",
+          "line-opacity": 0.95,
+          "line-width": lineWidthExpression(0.8, 1.5, 2.5),
+        },
+      },
+      meta
+    )
+  );
+}
+
+function addTransportationAreaStyleLayers(meta) {
+  addOrReplaceDataLayer(
+    withOptionalSourceLayer(
+      {
+        id: "transportation-area-fill",
+        type: "fill",
+        source: SOURCE_IDS.transportationA,
+        filter: transportationAreaFilterExpression(),
+        paint: {
+          "fill-color": "rgba(245, 148, 0, 0.38)",
+          "fill-opacity": 0.55,
+          "fill-outline-color": "rgba(245, 148, 0, 0.95)",
+        },
+      },
+      meta
+    )
+  );
+
+  addOrReplaceDataLayer(
+    withOptionalSourceLayer(
+      {
+        id: "transportation-area-outline",
+        type: "line",
+        source: SOURCE_IDS.transportationA,
+        filter: transportationAreaFilterExpression(),
+        paint: {
+          "line-color": "rgba(245, 148, 0, 0.98)",
+          "line-opacity": 0.95,
+          "line-width": lineWidthExpression(0.8, 1.6, 2.8),
+        },
+      },
+      meta
+    )
+  );
+}
+
+function addAncillaryCrisisInfoStyleLayers(meta) {
+  addOrReplaceDataLayer(
+    withOptionalSourceLayer(
+      {
+        id: "crisis-point-halo",
+        type: "circle",
+        source: SOURCE_IDS.ancillaryCrisisInfoP,
+        filter: ancillaryCrisisInfoFilterExpression(),
+        paint: {
+          "circle-color": "rgba(255, 111, 0, 0.25)",
+          "circle-opacity": 0.95,
+          "circle-radius": [
+            "interpolate",
+            ["linear"],
+            ["zoom"],
+            10,
+            7,
+            13,
+            10,
+            16,
+            15,
+          ],
+          "circle-stroke-color": "rgba(255, 111, 0, 0.95)",
+          "circle-stroke-width": 2.2,
+        },
+      },
+      meta
+    )
+  );
+
+  addOrReplaceDataLayer(
+    withOptionalSourceLayer(
+      {
+        id: "crisis-point-circle",
+        type: "circle",
+        source: SOURCE_IDS.ancillaryCrisisInfoP,
+        filter: ancillaryCrisisInfoFilterExpression(),
+        paint: {
+          "circle-color": "rgba(8, 10, 14, 0.96)",
+          "circle-opacity": 0.98,
+          "circle-radius": [
+            "interpolate",
+            ["linear"],
+            ["zoom"],
+            10,
+            3.5,
+            13,
+            5,
+            16,
+            8,
+          ],
+          "circle-stroke-color": "rgba(255, 111, 0, 1)",
+          "circle-stroke-width": 2.4,
         },
       },
       meta
@@ -2919,6 +4208,16 @@ function addTransportationStyleLayer(meta) {
         "line-opacity": 0.86,
         "line-width": lineWidthExpression(0.45, 1.0, 1.8),
         "line-dasharray": [2, 2],
+      },
+    },
+
+    {
+      id: "transportation-airfield-runway-line",
+      filter: transportationClassFilter("airfieldRunway"),
+      paint: {
+        "line-color": "rgba(222, 226, 230, 0.78)",
+        "line-opacity": 0.82,
+        "line-width": lineWidthExpression(0.7, 1.7, 3.0),
       },
     },
 
@@ -3180,18 +4479,31 @@ function extractUrls(value) {
 function looksLikeRelevantUrl(url) {
   const text = url.toLowerCase();
 
-  if (text.includes(".tif") || text.includes(".zip") || text.includes(".sld")) {
+  if (text.includes(".zip") || text.includes(".sld")) {
     return false;
   }
 
   return (
     text.endsWith(".json") ||
+    text.includes(".tif") ||
     text.includes("builtupa") ||
     text.includes("built_up_a") ||
     text.includes("built-up-a") ||
+    text.includes("builtupp") ||
+    text.includes("built_up_p") ||
+    text.includes("built-up-p") ||
     text.includes("transportationl") ||
     text.includes("transportation_l") ||
     text.includes("transportation-l") ||
+    text.includes("transportationa") ||
+    text.includes("transportation_a") ||
+    text.includes("transportation-a") ||
+    text.includes("facilitiesa") ||
+    text.includes("facilities_a") ||
+    text.includes("facilities-a") ||
+    text.includes("ancillarycrisisinfop") ||
+    text.includes("ancillary_crisis_info_p") ||
+    text.includes("ancillary-crisis-info-p") ||
     text.includes("notanalyseda") ||
     text.includes("not_analysed_a") ||
     text.includes("not-analysed-a") ||
@@ -3226,6 +4538,7 @@ function pickLayerUrls(records) {
 
   return {
     builtUpA: findBestLayerUrl(candidates, records, "builtUpA"),
+    builtUpP: findBestLayerUrl(candidates, records, "builtUpP"),
     transportationL: findBestLayerUrl(candidates, records, "transportationL"),
     notAnalysedA: findBestLayerUrl(candidates, records, "notAnalysedA"),
     groundMovementA: findBestLayerUrl(candidates, records, "groundMovementA"),
@@ -3305,12 +4618,57 @@ function classifyLayer(text, ...values) {
   const lower = rawText.toLowerCase();
 
   if (
+    lower.includes("ancillarycrisisinfop") ||
+    lower.includes("ancillary_crisis_info_p") ||
+    lower.includes("ancillary-crisis-info-p") ||
+    lower.includes("ancillary crisis info p") ||
+    lower.includes("crisisinfop") ||
+    lower.includes("crisis_info_p") ||
+    lower.includes("crisis-info-p")
+  ) {
+    return "ancillaryCrisisInfoP";
+  }
+
+  if (
     lower.includes("builtupa") ||
     lower.includes("built_up_a") ||
     lower.includes("built-up-a") ||
     lower.includes("built up a")
   ) {
     return "builtUpA";
+  }
+
+  if (
+    lower.includes("builtupp") ||
+    lower.includes("built_up_p") ||
+    lower.includes("built-up-p") ||
+    lower.includes("built up p") ||
+    lower.includes("built up point") ||
+    lower.includes("builduppoints") ||
+    lower.includes("built-up points")
+  ) {
+    return "builtUpP";
+  }
+
+  if (
+    lower.includes("facilitiesa") ||
+    lower.includes("facilities_a") ||
+    lower.includes("facilities-a") ||
+    lower.includes("facilities a") ||
+    lower.includes("facilitya") ||
+    lower.includes("facility_a") ||
+    lower.includes("facility-a")
+  ) {
+    return "facilitiesA";
+  }
+
+  if (
+    lower.includes("transportationa") ||
+    lower.includes("transportation_a") ||
+    lower.includes("transportation-a") ||
+    lower.includes("transportation a")
+  ) {
+    return "transportationA";
   }
 
   if (
@@ -3409,6 +4767,44 @@ function hiddenDamageExpression() {
   return ["==", ["get", "__never_show_this__"], "__hidden__"];
 }
 
+function visibleAllFilterExpression() {
+  return ["!=", ["get", "__never_show_this__"], "__hidden__"];
+}
+
+function buildDamageLayerFilterForKind(kind) {
+  const activeFilters = [];
+
+  if (getLayerVisibility(`${kind}:possible`, true)) {
+    activeFilters.push(possibleDamageExpression());
+  }
+
+  if (getLayerVisibility(`${kind}:damaged`, true)) {
+    activeFilters.push(confirmedDamagedExpression());
+  }
+
+  if (getLayerVisibility(`${kind}:destroyed`, true)) {
+    activeFilters.push(destroyedDamageExpression());
+  }
+
+  if (activeFilters.length === 0) {
+    return hiddenDamageExpression();
+  }
+
+  return ["any", ...activeFilters];
+}
+
+function transportationAreaFilterExpression() {
+  return getLayerVisibility("transportationA:airfieldAndHeliportDamaged", true)
+    ? visibleAllFilterExpression()
+    : hiddenDamageExpression();
+}
+
+function ancillaryCrisisInfoFilterExpression() {
+  return getLayerVisibility("ancillaryCrisisInfoP:blockedRoadInterruption", true)
+    ? visibleAllFilterExpression()
+    : hiddenDamageExpression();
+}
+
 function buildDamageLayerFilter() {
   const activeFilters = [];
 
@@ -3440,80 +4836,100 @@ function damageFilterExpression() {
 }
 
 function applyLayerVisibility() {
-  const notAnalysedInput = document.querySelector('[data-layer-toggle="notAnalysed"]');
-
-  if (notAnalysedInput) {
-    const row = notAnalysedInput.closest(".legend-toggle");
-
-    // User can enable/disable this on either basemap.
-    notAnalysedInput.disabled = false;
-    notAnalysedInput.checked = Boolean(layerVisibility.notAnalysed);
-
-    if (row) {
-      row.classList.remove("disabled");
-      row.classList.toggle("off", !layerVisibility.notAnalysed);
-      row.title = "";
-    }
-  }
-
+  syncLayerToggleInputs();
   updateLegendAvailability();
 
   if (!mapReady || !map) {
     return;
   }
 
-  const damageFilter = buildDamageLayerFilter();
+  const builtUpAreaFilter = buildDamageLayerFilterForKind("builtUpA");
+  const builtUpPointFilter = buildDamageLayerFilterForKind("builtUpP");
+  const facilitiesFilter = buildDamageLayerFilterForKind("facilitiesA");
+  const transportationAreaFilter = transportationAreaFilterExpression();
+  const crisisFilter = ancillaryCrisisInfoFilterExpression();
 
-  if (map.getLayer("built-up-fill")) {
-    map.setFilter("built-up-fill", damageFilter);
-  }
+  ["built-up-fill", "built-up-outline"].forEach((layerId) => {
+    if (map.getLayer(layerId)) {
+      map.setFilter(layerId, builtUpAreaFilter);
+    }
+  });
 
-  if (map.getLayer("built-up-outline")) {
-    map.setFilter("built-up-outline", damageFilter);
-  }
+  ["built-up-point-halo", "built-up-point-circle"].forEach((layerId) => {
+    if (map.getLayer(layerId)) {
+      map.setFilter(layerId, builtUpPointFilter);
+    }
+  });
+
+  ["facilities-area-fill", "facilities-area-outline"].forEach((layerId) => {
+    if (map.getLayer(layerId)) {
+      map.setFilter(layerId, facilitiesFilter);
+    }
+  });
+
+  ["transportation-area-fill", "transportation-area-outline"].forEach((layerId) => {
+    if (map.getLayer(layerId)) {
+      map.setFilter(layerId, transportationAreaFilter);
+    }
+  });
+
+  ["crisis-point-halo", "crisis-point-circle"].forEach((layerId) => {
+    if (map.getLayer(layerId)) {
+      map.setFilter(layerId, crisisFilter);
+    }
+  });
 
   setLayerVisibility(
     "transportation-highway-line",
-    layerVisibility.transportHighway !== false
+    getLayerVisibility("transportationL:highway", layerVisibility.transportHighway !== false)
   );
 
   setLayerVisibility(
     "transportation-main-road-line",
-    layerVisibility.transportMain !== false
+    getLayerVisibility("transportationL:main", layerVisibility.transportMain !== false)
   );
 
   setLayerVisibility(
     "transportation-local-road-line",
-    layerVisibility.transportLocal !== false
+    getLayerVisibility("transportationL:local", layerVisibility.transportLocal !== false)
   );
 
   setLayerVisibility(
     "transportation-track-line",
-    layerVisibility.transportTrack !== false
+    getLayerVisibility("transportationL:track", layerVisibility.transportTrack !== false)
   );
 
-  const showRailway = layerVisibility.transportRailway !== false;
+  setLayerVisibility(
+    "transportation-airfield-runway-line",
+    getLayerVisibility("transportationL:airfieldRunway", layerVisibility.transportAirfieldRunway !== false)
+  );
+
+  const showRailway = getLayerVisibility(
+    "transportationL:railway",
+    layerVisibility.transportRailway !== false
+  );
   setLayerVisibility("transportation-railway-line", showRailway);
   setLayerVisibility("transportation-railway-ticks", showRailway);
 
   GROUND_MOVEMENT_CLASSES.forEach((item) => {
-    const visible = layerVisibility[item.key] !== false;
+    const visible = getLayerVisibility(`groundMovementA:${item.key}`, layerVisibility[item.key] !== false);
     setLayerVisibility(`ground-movement-${item.id}-fill`, visible);
     setLayerVisibility(`ground-movement-${item.id}-outline`, visible);
   });
 
-  const showNotAnalysed = Boolean(layerVisibility.notAnalysed);
+  const showNotAnalysed = getLayerVisibility("notAnalysedA:default", false);
 
   setLayerVisibility("not-analysed-fill", showNotAnalysed);
   setLayerVisibility("not-analysed-hatch-fill", showNotAnalysed);
   setLayerVisibility("not-analysed-outline", showNotAnalysed);
 
-  const showAoi = layerVisibility.aoi !== false;
+  const showAoi = getLayerVisibility("aoi:default", layerVisibility.aoi !== false);
 
   AOI_LAYER_IDS.forEach((layerId) => {
     setLayerVisibility(layerId, showAoi);
   });
 
+  syncLayerToggleInputs();
   updateLegendAvailability();
 }
 
@@ -3526,3 +4942,2375 @@ function setStatus(type, title, message, showRetry) {
   els.statusMessage.textContent = message;
   els.retry.classList.toggle("hidden", !showRetry);
 }
+
+/* Inline product selector and product comparison override: start */
+var PRODUCT_ALL_KEY_V4 = "__all__";
+var DYNAMIC_DATA_LAYER_IDS_V4 = new Set();
+var DYNAMIC_SOURCE_IDS_V4 = new Set();
+
+function safeMapIdV4(value) {
+  return String(value || "default")
+    .trim()
+    .replace(/[^a-zA-Z0-9_-]+/g, "-")
+    .replace(/^-+|-+$/g, "")
+    .slice(0, 80) || "default";
+}
+
+function isAllProductsSelectedV4() {
+  return selectedProductKey === PRODUCT_ALL_KEY_V4 || selectedProductKey === "all";
+}
+
+function visibilityKeyV4(productKey, kind, className) {
+  return `${safeMapIdV4(productKey)}:${kind}:${className}`;
+}
+
+function productLayerIdV4(meta, baseId) {
+  return `${baseId}-${safeMapIdV4(meta?.productKey || "default")}`;
+}
+
+function getLoadedSourceMetasV4(kind, productKey = "") {
+  return Object.values(loadedSourceMeta || {}).filter((meta) => {
+    if (!meta || meta.kind !== kind) return false;
+    if (productKey && String(meta.productKey) !== String(productKey)) return false;
+    return true;
+  });
+}
+
+function getLoadedSourceMetaV4(kind, productKey = "") {
+  return getLoadedSourceMetasV4(kind, productKey)[0] || null;
+}
+
+function getSelectedProductsForAoiV4(aoi, products = getProductsSortedForAoi(aoi)) {
+  const sorted = Array.isArray(products) ? products : [];
+  const useful = sorted.filter(productHasUsefulLayers);
+
+  if (isAllProductsSelectedV4()) {
+    return useful.length ? useful : sorted.slice(0, 1);
+  }
+
+  const selected = chooseSelectedProductForAoi(aoi, sorted);
+  return selected ? [selected] : [];
+}
+
+function formatProductStatusLineV4(product) {
+  const available = productHasUsefulLayers(product);
+  const status = getAoiCardStatusText(product, available);
+  const time = formatProductSituationLabel(product);
+  return `${status}${time ? ` · ${time}` : ""}`;
+}
+
+function renderInlineProductOptionsV4(aoi) {
+  const products = getProductsSortedForAoi(aoi);
+  const usefulProducts = products.filter(productHasUsefulLayers);
+
+  if (products.length <= 1) {
+    return "";
+  }
+
+  const selectedProducts = getSelectedProductsForAoiV4(aoi, products);
+  const selectedKeys = new Set(selectedProducts.map(getProductKey));
+  const selectedSingleKey = selectedProducts.length === 1 ? getProductKey(selectedProducts[0]) : "";
+  const defaultSelected = selectedSingleKey || getProductKey(products[0]);
+
+  const allButton = usefulProducts.length > 1
+    ? `
+      <button
+        class="aoi-product-chip ${isAllProductsSelectedV4() ? "active-product-chip" : ""}"
+        type="button"
+        data-product-key="${PRODUCT_ALL_KEY_V4}"
+      >
+        <strong>${escapeHtml(t("allProducts"))}</strong>
+        <small>${escapeHtml(usefulProducts.map(getProductLabel).join(" + "))}</small>
+      </button>
+    `
+    : "";
+
+  const productButtons = products.map((product) => {
+    const productKey = getProductKey(product);
+    const active = isAllProductsSelectedV4()
+      ? selectedKeys.has(productKey)
+      : selectedProductKey
+        ? productKey === selectedSingleKey
+        : productKey === defaultSelected;
+    const available = productHasUsefulLayers(product);
+    const statusCode = product?.version?.statusCode || "";
+    const dotClass = available ? "green" : statusCode === "N" ? "red" : "amber";
+
+    return `
+      <button
+        class="aoi-product-chip ${active ? "active-product-chip" : ""} ${available ? "" : "disabled-product-chip"}"
+        type="button"
+        data-product-key="${escapeHtml(productKey)}"
+      >
+        <span class="status-dot ${dotClass}" aria-hidden="true"></span>
+        <span>
+          <strong>${escapeHtml(getProductLabel(product))}</strong>
+          <small>${escapeHtml(formatProductStatusLineV4(product))}</small>
+        </span>
+      </button>
+    `;
+  }).join("");
+
+  return `
+    <div class="aoi-product-options" aria-label="Product selector">
+      ${allButton}
+      ${productButtons}
+    </div>
+  `;
+}
+
+function renderAoiList(aois = latestAois) {
+  if (!els.aoiList || !Array.isArray(aois) || !aois.length) {
+    return;
+  }
+
+  els.aoiList.innerHTML = aois
+    .map((aoi) => {
+      const product = chooseAoiProduct(aoi);
+      const available = productHasUsefulLayers(product);
+      const selected = Number(aoi.number) === Number(selectedAoiNumber);
+
+      const numberText = String(aoi.number).padStart(2, "0");
+      const name = aoi.name || `AOI${numberText}`;
+      const statusCode = product?.version?.statusCode || "";
+
+      const dotClass = available ? "green" : statusCode === "N" ? "red" : "amber";
+
+      const classes = [
+        "aoi-card",
+        available ? "available-aoi" : "disabled placeholder-aoi",
+        selected ? "active-aoi" : "",
+      ]
+        .filter(Boolean)
+        .join(" ");
+
+      const productLabel = getProductLabel(product);
+      const statusText = getAoiCardStatusText(product, available);
+
+      return `
+        <div class="aoi-entry ${selected ? "selected-aoi-entry" : ""}">
+          <button
+            class="${classes}"
+            type="button"
+            data-aoi-number="${Number(aoi.number)}"
+            aria-disabled="${available ? "false" : "true"}"
+          >
+            <span class="status-dot ${dotClass}" aria-hidden="true"></span>
+            <span>
+              <strong>${escapeHtml(numberText)} ${escapeHtml(name)}</strong>
+              <small>${escapeHtml(productLabel)} · ${escapeHtml(statusText)}</small>
+            </span>
+          </button>
+          ${selected ? renderInlineProductOptionsV4(aoi) : ""}
+        </div>
+      `;
+    })
+    .join("");
+}
+
+function renderProductSelector(products = currentProductOptions, selectedProduct = latestSelectedProductInfo?.product || null) {
+  currentProductOptions = Array.isArray(products) ? products : [];
+
+  if (els.productPanel) {
+    els.productPanel.classList.add("hidden");
+  }
+
+  if (els.productList) {
+    els.productList.innerHTML = "";
+  }
+}
+
+function setupUiEvents() {
+  const oldCaracasButton = document.getElementById("load-caracas");
+
+  if (oldCaracasButton) {
+    oldCaracasButton.addEventListener("click", () => {
+      selectedAoiNumber = 2;
+      selectedProductKey = "";
+      updateAoiUrlParam(2);
+      clearSelectedProductUrlParam();
+      closeMobileSidebar();
+      loadAoi(2);
+    });
+  }
+
+  if (els.aoiList) {
+    els.aoiList.addEventListener("click", (event) => {
+      const productButton = event.target.closest("[data-product-key]");
+
+      if (productButton) {
+        event.preventDefault();
+        event.stopPropagation();
+
+        const nextProductKey = String(productButton.dataset.productKey || "").trim();
+
+        if (!nextProductKey) {
+          return;
+        }
+
+        selectedProductKey = nextProductKey;
+        updateSelectedProductUrlParam(nextProductKey);
+        loadAoi(selectedAoiNumber);
+        return;
+      }
+
+      const button = event.target.closest("[data-aoi-number]");
+      if (!button) return;
+
+      const aoiNumber = Number(button.dataset.aoiNumber);
+
+      if (!Number.isFinite(aoiNumber)) {
+        return;
+      }
+
+      selectedAoiNumber = aoiNumber;
+      selectedProductKey = "";
+      updateAoiUrlParam(aoiNumber);
+      clearSelectedProductUrlParam();
+      closeMobileSidebar();
+      loadAoi(aoiNumber);
+    });
+  }
+
+  const sidebarToggle = document.getElementById("sidebar-toggle");
+  if (sidebarToggle) {
+    sidebarToggle.addEventListener("click", () => {
+      document.body.classList.toggle("sidebar-open");
+    });
+  }
+
+  if (els.retry) {
+    els.retry.addEventListener("click", () => {
+      loadAoi(selectedAoiNumber);
+    });
+  }
+
+  const refreshDataButton = document.getElementById("refresh-data-btn");
+  if (refreshDataButton) {
+    refreshDataButton.addEventListener("click", forceRefreshCopernicusData);
+  }
+
+  document.addEventListener("keydown", (event) => {
+    if (event.key === "Escape") {
+      closeMobileSidebar();
+    }
+  });
+}
+
+function setupLayerToggleEvents() {
+  const legend = document.getElementById("map-legend");
+
+  if (!legend || legend.dataset.toggleDelegatedV4 === "1") {
+    return;
+  }
+
+  legend.dataset.toggleDelegatedV4 = "1";
+
+  legend.addEventListener("change", (event) => {
+    const labelsInput = event.target.closest("[data-basemap-labels-toggle]");
+
+    if (labelsInput) {
+      satelliteLabelsEnabled = Boolean(labelsInput.checked);
+
+      if (els.labelsToggle) {
+        els.labelsToggle.checked = satelliteLabelsEnabled;
+      }
+
+      setBasemap(currentBasemap);
+      renderDynamicLegend(latestSelectedProductInfo);
+      return;
+    }
+
+    const input = event.target.closest("[data-layer-toggle]");
+
+    if (!input) {
+      return;
+    }
+
+    const key = String(input.dataset.layerToggle || "").trim();
+
+    if (!key) {
+      return;
+    }
+
+    setLayerVisibilityState(key, input.checked);
+    syncLayerToggleInputs();
+    applyLayerVisibility();
+  });
+
+  syncLayerToggleInputs();
+}
+
+function clearCopernicusDataLayers() {
+  if (!map) return;
+
+  const layerIds = new Set([
+    ...DATA_LAYER_IDS,
+    ...DYNAMIC_DATA_LAYER_IDS_V4,
+  ]);
+
+  for (const layerId of layerIds) {
+    if (map.getLayer(layerId)) {
+      map.removeLayer(layerId);
+    }
+  }
+
+  const sourceIds = new Set([
+    ...Object.values(SOURCE_IDS),
+    ...DYNAMIC_SOURCE_IDS_V4,
+  ]);
+
+  for (const sourceId of sourceIds) {
+    if (map.getSource(sourceId)) {
+      map.removeSource(sourceId);
+    }
+
+    delete loadedSourceMeta[sourceId];
+  }
+
+  DYNAMIC_DATA_LAYER_IDS_V4.clear();
+  DYNAMIC_SOURCE_IDS_V4.clear();
+}
+
+async function getCopernicusLayerInfo(aoiNumber = selectedAoiNumber) {
+  const overrides = cleanOverrideUrls(COPERNICUS_URL_OVERRIDES);
+
+  const manifestInfo = await getCachedCopernicusManifest();
+  const manifest = manifestInfo.manifest;
+
+  latestAois = getAllAois(manifest);
+  renderAoiList(latestAois);
+
+  const aoi = findAoiByNumber(manifest, aoiNumber);
+
+  if (!aoi) {
+    throw new Error(
+      `AOI${String(aoiNumber).padStart(2, "0")} not found in EMSR884 manifest.`
+    );
+  }
+
+  const productOptions = getProductsSortedForAoi(aoi);
+  const selectedProducts = getSelectedProductsForAoiV4(aoi, productOptions);
+  const primaryProduct = selectedProducts[0] || chooseSelectedProductForAoi(aoi, productOptions);
+
+  if (!selectedProducts.length && !primaryProduct) {
+    updateDataStatusPanel({
+      activationCode: "EMSR884",
+      aoiName: aoi.name || `AOI${String(aoi.number).padStart(2, "0")}`,
+      aoiNumber: aoi.number,
+      lastChecked: manifestInfo.checkedAt,
+      fromCache: manifestInfo.fromCache,
+      cacheStale: manifestInfo.stale,
+      cacheAgeMs: manifestInfo.cacheAgeMs,
+      reportLink: manifest?.results?.[0]?.reportLink || "",
+      productsPath: manifest?.results?.[0]?.productsPath || "",
+    });
+
+    return {
+      manifest,
+      manifestInfo,
+      aoi,
+      product: null,
+      products: [],
+      productOptions,
+      productLayerEntries: [],
+      urls: {},
+      cogLayers: [],
+    };
+  }
+
+  if (!selectedProductKey && primaryProduct) {
+    selectedProductKey = getProductKey(primaryProduct);
+  }
+
+  const effectiveProducts = selectedProducts.length ? selectedProducts : [primaryProduct];
+
+  const productLayerEntries = effectiveProducts.map((product) => {
+    const urls = extractLayerUrlsFromProduct(product);
+
+    // Manual overrides are only safe for single-product mode.
+    if (effectiveProducts.length === 1) {
+      Object.assign(urls, overrides);
+    }
+
+    return {
+      product,
+      productKey: getProductKey(product),
+      productLabel: getProductLabel(product),
+      urls,
+    };
+  });
+
+  const cogLayers = effectiveProducts.flatMap((product) =>
+    extractCogLayersFromProduct(product, manifest).map((item) => ({
+      ...item,
+      product,
+      productKey: getProductKey(product),
+      productLabel: getProductLabel(product),
+    }))
+  );
+
+  updateDataStatusPanel({
+    activationCode: "EMSR884",
+    aoiName: aoi.name || `AOI${String(aoi.number).padStart(2, "0")}`,
+    aoiNumber: aoi.number,
+
+    productId: effectiveProducts.length === 1 ? effectiveProducts[0]?.id || "" : "",
+    productType: effectiveProducts.length === 1 ? effectiveProducts[0]?.type || "" : "",
+    productStatus: effectiveProducts.length === 1 ? effectiveProducts[0]?.version?.statusCode || "" : "",
+    productSummary: isAllProductsSelectedV4()
+      ? `${t("allProducts")} · ${formatProductListLabel(effectiveProducts)}`
+      : formatProductListLabel(effectiveProducts),
+
+    deliveryTime: getLatestProductDeliveryTime(effectiveProducts),
+    expectedDelivery: getLatestProductExpectedDelivery(effectiveProducts),
+    acquisitionTime: getLatestAcquisitionTimeFromProducts(effectiveProducts),
+
+    lastChecked: manifestInfo.checkedAt,
+    fromCache: manifestInfo.fromCache,
+    cacheStale: manifestInfo.stale,
+    cacheAgeMs: manifestInfo.cacheAgeMs,
+    reportLink: manifest?.results?.[0]?.reportLink || "",
+    productsPath: manifest?.results?.[0]?.productsPath || "",
+    downloadPath: effectiveProducts.length === 1 ? effectiveProducts[0]?.downloadPath || "" : manifest?.results?.[0]?.productsPath || "",
+  });
+
+  renderProductSelector(productOptions, primaryProduct);
+
+  console.info("Selected Copernicus AOI/product mode/layers:", {
+    aoiName: aoi.name,
+    aoiNumber: aoi.number,
+    allProducts: isAllProductsSelectedV4(),
+    products: effectiveProducts.map((product) => ({
+      id: product.id,
+      type: product.type,
+      monitoring: product.monitoring,
+      monitoringNumber: product.monitoringNumber,
+      status: product.version?.statusCode,
+    })),
+    productLayerEntries,
+    cogLayers,
+  });
+
+  return {
+    manifest,
+    manifestInfo,
+    aoi,
+    product: primaryProduct,
+    products: effectiveProducts,
+    productOptions,
+    productLayerEntries,
+    urls: productLayerEntries[0]?.urls || {},
+    cogLayers,
+  };
+}
+
+async function loadAoi(aoiNumber = selectedAoiNumber) {
+  if (!mapReady || isLoading) return;
+
+  const nextAoiNumber = Number(aoiNumber);
+  selectedAoiNumber = Number.isFinite(nextAoiNumber)
+    ? nextAoiNumber
+    : DEFAULT_AOI_NUMBER;
+
+  isLoading = true;
+
+  latestDataStatusMeta = {};
+  latestSelectedProductInfo = null;
+  renderDataStatusPanel();
+
+  setStatus("loading", t("loadingTitle"), t("loadingText"), false);
+
+  try {
+    clearCopernicusDataLayers();
+
+    const info = await getCopernicusLayerInfo(selectedAoiNumber);
+    latestSelectedProductInfo = info;
+
+    renderAoiList(latestAois);
+    fitAoiExtent(info.aoi);
+    showAoiExtent(info.aoi);
+
+    const wantedOrder = [
+      "notAnalysedA",
+      "groundMovementA",
+      "transportationA",
+      "facilitiesA",
+      "builtUpA",
+      "builtUpP",
+      "ancillaryCrisisInfoP",
+      "transportationL",
+    ];
+
+    const layerJobs = [];
+
+    for (const entry of info.productLayerEntries || []) {
+      for (const kind of wantedOrder) {
+        const url = entry.urls?.[kind];
+
+        if (url) {
+          layerJobs.push([kind, url, entry.product]);
+        }
+      }
+    }
+
+    const results = [];
+
+    for (const [kind, url, product] of layerJobs) {
+      try {
+        const value = await addCopernicusLayer(kind, url, product);
+        results.push({ status: "fulfilled", value, kind, product });
+      } catch (error) {
+        console.warn(`Layer ${kind} failed:`, error);
+        results.push({ status: "rejected", reason: error, kind, product });
+      }
+    }
+
+    const loadedCount = results.filter(
+      (result) => result.status === "fulfilled" && result.value === true
+    ).length;
+
+    showAoiExtent(info.aoi);
+    moveLabelsToTop();
+    renderDynamicLegend(info);
+    applyLayerVisibility();
+
+    if (loadedCount === 0) {
+      console.warn("Copernicus layer load results:", results);
+
+      setStatus(
+        "error",
+        t("aoiUnavailableTitle"),
+        `${formatAoiLabel(info.aoi)} · ${formatProductListLabel(info.products || []) || getProductLabel(info.product)} — ${t("aoiUnavailableText")}`,
+        false
+      );
+
+      updateDataStatusPanel({
+        successfulLoadTime: "",
+        loadedLayerCount: 0,
+      });
+
+      return;
+    }
+
+    updateDataStatusPanel({
+      successfulLoadTime: new Date().toISOString(),
+      loadedLayerCount: loadedCount,
+    });
+
+    renderAoiList(latestAois);
+
+    setStatus(
+      "success",
+      t("loadedTitle"),
+      `${formatAoiLabel(info.aoi)} · ${formatProductListLabel(info.products || []) || getProductLabel(info.product)} — ${t("loadedText")}`,
+      false
+    );
+
+    window.setTimeout(() => {
+      if (els.status.classList.contains("success")) {
+        els.status.classList.add("hidden");
+      }
+    }, 5500);
+  } catch (error) {
+    console.error(error);
+
+    setStatus(
+      "error",
+      t("unavailableTitle"),
+      `${t("unavailableText")}${error.message ? ` (${error.message})` : ""}`,
+      true
+    );
+  } finally {
+    isLoading = false;
+  }
+}
+
+async function addCopernicusLayer(kind, url, product = null) {
+  maybeShowLargeLayerDownloadNotice(kind, url);
+
+  const meta = await ensureCopernicusSource(kind, url, product);
+
+  if (kind === "builtUpA") {
+    addBuiltUpStyleLayers(meta);
+  } else if (kind === "builtUpP") {
+    addBuiltUpPointStyleLayers(meta);
+  } else if (kind === "transportationL") {
+    addTransportationStyleLayer(meta);
+  } else if (kind === "transportationA") {
+    addTransportationAreaStyleLayers(meta);
+  } else if (kind === "facilitiesA") {
+    addFacilitiesAreaStyleLayers(meta);
+  } else if (kind === "ancillaryCrisisInfoP") {
+    addAncillaryCrisisInfoStyleLayers(meta);
+  } else if (kind === "notAnalysedA") {
+    addNotAnalysedStyleLayers(meta);
+  } else if (kind === "groundMovementA") {
+    addGroundMovementStyleLayers(meta);
+  } else {
+    throw new Error(`Unknown Copernicus layer kind: ${kind}`);
+  }
+
+  applyLayerVisibility();
+
+  console.info(`Added Copernicus layer ${kind}:`, meta);
+  return true;
+}
+
+async function ensureCopernicusSource(kind, url, product = null) {
+  const baseSourceId = SOURCE_IDS[kind];
+
+  if (!baseSourceId) {
+    throw new Error(`No source id configured for ${kind}`);
+  }
+
+  const productKey = product ? getProductKey(product) : "default";
+  const sourceId = `${baseSourceId}-${safeMapIdV4(productKey)}`;
+
+  if (map.getSource(sourceId) && loadedSourceMeta[sourceId]) {
+    return loadedSourceMeta[sourceId];
+  }
+
+  const json = await fetchJsonDocument(url, `${kind} Copernicus JSON`, {
+    cacheDocument: true,
+    fetchCache: "force-cache",
+  });
+
+  console.info(`Fetched ${kind} JSON summary:`, summarizeJson(json, url));
+
+  if (isGeoJson(json)) {
+    const geojson = normalizeGeoJson(json);
+    const featureSummary = summarizeLayerFeatures(kind, geojson.features || []);
+
+    map.addSource(sourceId, {
+      type: "geojson",
+      data: geojson,
+      generateId: true,
+    });
+
+    DYNAMIC_SOURCE_IDS_V4.add(sourceId);
+
+    loadedSourceMeta[sourceId] = {
+      kind,
+      sourceId,
+      sourceType: "geojson",
+      sourceLayer: null,
+      url,
+      product,
+      productKey,
+      productLabel: getProductLabel(product),
+      featureCount: Array.isArray(geojson.features) ? geojson.features.length : null,
+      ...featureSummary,
+    };
+
+    return loadedSourceMeta[sourceId];
+  }
+
+  if (isTileJson(json)) {
+    const tiles = Array.isArray(json.tiles)
+      ? json.tiles.map((tile) => resolveTileUrl(tile, url))
+      : [];
+
+    if (!tiles.length) {
+      throw new Error(
+        `${kind}: JSON looks like TileJSON but has no tiles[] array. Keys: ${Object.keys(
+          json
+        ).join(", ")}`
+      );
+    }
+
+    const sourceLayer = detectVectorSourceLayer(json, kind, url);
+
+    if (!sourceLayer) {
+      throw new Error(`${kind}: Could not detect vector source-layer from TileJSON.`);
+    }
+
+    const sourceDefinition = {
+      type: "vector",
+      tiles,
+    };
+
+    const minzoom = Number(json.minzoom);
+    const maxzoom = Number(json.maxzoom);
+
+    if (Number.isFinite(minzoom)) sourceDefinition.minzoom = minzoom;
+    if (Number.isFinite(maxzoom)) sourceDefinition.maxzoom = maxzoom;
+    if (json.scheme) sourceDefinition.scheme = json.scheme;
+
+    if (Array.isArray(json.bounds) && json.bounds.length === 4) {
+      sourceDefinition.bounds = json.bounds;
+    }
+
+    if (json.attribution) {
+      sourceDefinition.attribution = json.attribution;
+    }
+
+    map.addSource(sourceId, sourceDefinition);
+    DYNAMIC_SOURCE_IDS_V4.add(sourceId);
+
+    loadedSourceMeta[sourceId] = {
+      kind,
+      sourceId,
+      sourceType: "vector",
+      sourceLayer,
+      url,
+      product,
+      productKey,
+      productLabel: getProductLabel(product),
+      tiles,
+      tileJsonKeys: Object.keys(json),
+    };
+
+    return loadedSourceMeta[sourceId];
+  }
+
+  throw new Error(
+    `${kind}: Unsupported Copernicus JSON. It is neither GeoJSON nor TileJSON. Keys: ${Object.keys(
+      json || {}
+    ).join(", ")}`
+  );
+}
+
+function addOrReplaceDataLayer(layerDefinition) {
+  if (map.getLayer(layerDefinition.id)) {
+    map.removeLayer(layerDefinition.id);
+  }
+
+  const beforeId = map.getLayer(BASE_LAYER_IDS.labels)
+    ? BASE_LAYER_IDS.labels
+    : undefined;
+
+  try {
+    map.addLayer(layerDefinition, beforeId);
+    DYNAMIC_DATA_LAYER_IDS_V4.add(layerDefinition.id);
+  } catch (error) {
+    console.error("Failed to add layer:", layerDefinition);
+    throw error;
+  }
+}
+
+function buildDamageLayerFilterForMetaV4(meta) {
+  const productKey = meta?.productKey || "default";
+  const kind = meta?.kind || "builtUpA";
+  const activeFilters = [];
+
+  if (getLayerVisibility(visibilityKeyV4(productKey, kind, "possible"), true)) {
+    activeFilters.push(possibleDamageExpression());
+  }
+
+  if (getLayerVisibility(visibilityKeyV4(productKey, kind, "damaged"), true)) {
+    activeFilters.push(confirmedDamagedExpression());
+  }
+
+  if (getLayerVisibility(visibilityKeyV4(productKey, kind, "destroyed"), true)) {
+    activeFilters.push(destroyedDamageExpression());
+  }
+
+  if (activeFilters.length === 0) {
+    return hiddenDamageExpression();
+  }
+
+  return ["any", ...activeFilters];
+}
+
+function visibleAllFilterExpressionV4() {
+  return ["!=", ["get", "__never_show_this__"], "__hidden__"];
+}
+
+function transportationAreaFilterExpressionV4(meta) {
+  return getLayerVisibility(
+    visibilityKeyV4(meta?.productKey || "default", "transportationA", "airfieldAndHeliportDamaged"),
+    true
+  )
+    ? visibleAllFilterExpressionV4()
+    : hiddenDamageExpression();
+}
+
+function ancillaryCrisisInfoFilterExpressionV4(meta) {
+  return getLayerVisibility(
+    visibilityKeyV4(meta?.productKey || "default", "ancillaryCrisisInfoP", "blockedRoadInterruption"),
+    true
+  )
+    ? visibleAllFilterExpressionV4()
+    : hiddenDamageExpression();
+}
+
+function addBuiltUpStyleLayers(meta) {
+  const color = damageColorExpression();
+
+  addOrReplaceDataLayer(
+    withOptionalSourceLayer(
+      {
+        id: productLayerIdV4(meta, "built-up-fill"),
+        type: "fill",
+        source: meta.sourceId,
+        filter: buildDamageLayerFilterForMetaV4(meta),
+        paint: {
+          "fill-color": color,
+          "fill-opacity": 0.78,
+        },
+      },
+      meta
+    )
+  );
+
+  addOrReplaceDataLayer(
+    withOptionalSourceLayer(
+      {
+        id: productLayerIdV4(meta, "built-up-outline"),
+        type: "line",
+        source: meta.sourceId,
+        filter: buildDamageLayerFilterForMetaV4(meta),
+        paint: {
+          "line-color": color,
+          "line-opacity": 0.95,
+          "line-width": [
+            "interpolate",
+            ["linear"],
+            ["zoom"],
+            10,
+            0.8,
+            13,
+            1.5,
+            16,
+            2.4,
+          ],
+        },
+      },
+      meta
+    )
+  );
+}
+
+function addBuiltUpPointStyleLayers(meta) {
+  const color = damageColorExpression();
+
+  addOrReplaceDataLayer(
+    withOptionalSourceLayer(
+      {
+        id: productLayerIdV4(meta, "built-up-point-halo"),
+        type: "circle",
+        source: meta.sourceId,
+        filter: buildDamageLayerFilterForMetaV4(meta),
+        paint: {
+          "circle-color": "rgba(255, 255, 255, 0.92)",
+          "circle-opacity": 0.78,
+          "circle-radius": [
+            "interpolate",
+            ["linear"],
+            ["zoom"],
+            10,
+            4.5,
+            13,
+            6.8,
+            16,
+            10.5,
+          ],
+          "circle-stroke-color": "rgba(0, 0, 0, 0.58)",
+          "circle-stroke-width": 1,
+        },
+      },
+      meta
+    )
+  );
+
+  addOrReplaceDataLayer(
+    withOptionalSourceLayer(
+      {
+        id: productLayerIdV4(meta, "built-up-point-circle"),
+        type: "circle",
+        source: meta.sourceId,
+        filter: buildDamageLayerFilterForMetaV4(meta),
+        paint: {
+          "circle-color": color,
+          "circle-opacity": 0.98,
+          "circle-radius": [
+            "interpolate",
+            ["linear"],
+            ["zoom"],
+            10,
+            3.2,
+            13,
+            5,
+            16,
+            8.2,
+          ],
+          "circle-stroke-color": "rgba(255, 255, 255, 0.95)",
+          "circle-stroke-width": 1.1,
+        },
+      },
+      meta
+    )
+  );
+}
+
+function addFacilitiesAreaStyleLayers(meta) {
+  const color = damageColorExpression();
+
+  addOrReplaceDataLayer(
+    withOptionalSourceLayer(
+      {
+        id: productLayerIdV4(meta, "facilities-area-fill"),
+        type: "fill",
+        source: meta.sourceId,
+        filter: buildDamageLayerFilterForMetaV4(meta),
+        paint: {
+          "fill-color": color,
+          "fill-opacity": 0.55,
+          "fill-outline-color": "rgba(255, 0, 255, 0.9)",
+        },
+      },
+      meta
+    )
+  );
+
+  addOrReplaceDataLayer(
+    withOptionalSourceLayer(
+      {
+        id: productLayerIdV4(meta, "facilities-area-outline"),
+        type: "line",
+        source: meta.sourceId,
+        filter: buildDamageLayerFilterForMetaV4(meta),
+        paint: {
+          "line-color": "rgba(255, 0, 255, 0.95)",
+          "line-opacity": 0.95,
+          "line-width": lineWidthExpression(0.8, 1.5, 2.5),
+        },
+      },
+      meta
+    )
+  );
+}
+
+function addTransportationAreaStyleLayers(meta) {
+  addOrReplaceDataLayer(
+    withOptionalSourceLayer(
+      {
+        id: productLayerIdV4(meta, "transportation-area-fill"),
+        type: "fill",
+        source: meta.sourceId,
+        filter: transportationAreaFilterExpressionV4(meta),
+        paint: {
+          "fill-color": "rgba(245, 148, 0, 0.38)",
+          "fill-opacity": 0.55,
+          "fill-outline-color": "rgba(245, 148, 0, 0.95)",
+        },
+      },
+      meta
+    )
+  );
+
+  addOrReplaceDataLayer(
+    withOptionalSourceLayer(
+      {
+        id: productLayerIdV4(meta, "transportation-area-outline"),
+        type: "line",
+        source: meta.sourceId,
+        filter: transportationAreaFilterExpressionV4(meta),
+        paint: {
+          "line-color": "rgba(245, 148, 0, 0.98)",
+          "line-opacity": 0.95,
+          "line-width": lineWidthExpression(0.8, 1.6, 2.8),
+        },
+      },
+      meta
+    )
+  );
+}
+
+function addAncillaryCrisisInfoStyleLayers(meta) {
+  addOrReplaceDataLayer(
+    withOptionalSourceLayer(
+      {
+        id: productLayerIdV4(meta, "crisis-point-halo"),
+        type: "circle",
+        source: meta.sourceId,
+        filter: ancillaryCrisisInfoFilterExpressionV4(meta),
+        paint: {
+          "circle-color": "rgba(255, 111, 0, 0.25)",
+          "circle-opacity": 0.95,
+          "circle-radius": [
+            "interpolate",
+            ["linear"],
+            ["zoom"],
+            10,
+            7,
+            13,
+            10,
+            16,
+            15,
+          ],
+          "circle-stroke-color": "rgba(255, 111, 0, 0.95)",
+          "circle-stroke-width": 2.2,
+        },
+      },
+      meta
+    )
+  );
+
+  addOrReplaceDataLayer(
+    withOptionalSourceLayer(
+      {
+        id: productLayerIdV4(meta, "crisis-point-circle"),
+        type: "circle",
+        source: meta.sourceId,
+        filter: ancillaryCrisisInfoFilterExpressionV4(meta),
+        paint: {
+          "circle-color": "rgba(8, 10, 14, 0.96)",
+          "circle-opacity": 0.98,
+          "circle-radius": [
+            "interpolate",
+            ["linear"],
+            ["zoom"],
+            10,
+            3.5,
+            13,
+            5,
+            16,
+            8,
+          ],
+          "circle-stroke-color": "rgba(255, 111, 0, 1)",
+          "circle-stroke-width": 2.4,
+        },
+      },
+      meta
+    )
+  );
+}
+
+function addTransportationStyleLayer(meta) {
+  const layers = [
+    {
+      baseId: "transportation-local-road-line",
+      className: "local",
+      filter: transportationClassFilter("local"),
+      paint: {
+        "line-color": "rgba(170, 174, 180, 0.92)",
+        "line-opacity": 0.82,
+        "line-width": lineWidthExpression(0.45, 1.0, 1.8),
+      },
+    },
+    {
+      baseId: "transportation-track-line",
+      className: "track",
+      filter: transportationClassFilter("track"),
+      paint: {
+        "line-color": "rgba(190, 194, 200, 0.96)",
+        "line-opacity": 0.86,
+        "line-width": lineWidthExpression(0.45, 1.0, 1.8),
+        "line-dasharray": [2, 2],
+      },
+    },
+    {
+      baseId: "transportation-airfield-runway-line",
+      className: "airfieldRunway",
+      filter: transportationClassFilter("airfieldRunway"),
+      paint: {
+        "line-color": "rgba(222, 226, 230, 0.78)",
+        "line-opacity": 0.82,
+        "line-width": lineWidthExpression(0.7, 1.7, 3.0),
+      },
+    },
+    {
+      baseId: "transportation-main-road-line",
+      className: "main",
+      filter: transportationClassFilter("main"),
+      paint: {
+        "line-color": "rgba(246, 248, 250, 0.96)",
+        "line-opacity": 0.9,
+        "line-width": lineWidthExpression(0.65, 1.6, 2.8),
+      },
+    },
+    {
+      baseId: "transportation-highway-line",
+      className: "highway",
+      filter: transportationClassFilter("highway"),
+      paint: {
+        "line-color": "rgba(255, 180, 188, 0.98)",
+        "line-opacity": 0.96,
+        "line-width": lineWidthExpression(1.0, 2.6, 4.6),
+      },
+    },
+    {
+      baseId: "transportation-railway-line",
+      className: "railway",
+      filter: transportationClassFilter("railway"),
+      paint: {
+        "line-color": "rgba(8, 12, 18, 0.98)",
+        "line-opacity": 0.96,
+        "line-width": lineWidthExpression(0.7, 1.5, 2.4),
+      },
+    },
+    {
+      baseId: "transportation-railway-ticks",
+      className: "railway",
+      filter: transportationClassFilter("railway"),
+      paint: {
+        "line-color": "rgba(8, 12, 18, 0.98)",
+        "line-opacity": 0.72,
+        "line-width": lineWidthExpression(2.0, 3.4, 5.2),
+        "line-dasharray": [0.1, 1.6],
+      },
+    },
+  ];
+
+  layers.forEach((layer) => {
+    addOrReplaceDataLayer(
+      withOptionalSourceLayer(
+        {
+          id: productLayerIdV4(meta, layer.baseId),
+          type: "line",
+          source: meta.sourceId,
+          filter: layer.filter,
+          layout: {
+            "line-cap": "round",
+            "line-join": "round",
+          },
+          paint: layer.paint,
+        },
+        meta
+      )
+    );
+  });
+}
+
+function addNotAnalysedStyleLayers(meta) {
+  if (!map.hasImage("not-analysed-hatch")) {
+    addHatchPattern();
+  }
+
+  addOrReplaceDataLayer(
+    withOptionalSourceLayer(
+      {
+        id: productLayerIdV4(meta, "not-analysed-fill"),
+        type: "fill",
+        source: meta.sourceId,
+        paint: {
+          "fill-color": "rgba(31, 36, 46, 0.88)",
+          "fill-opacity": 0.38,
+        },
+      },
+      meta
+    )
+  );
+
+  addOrReplaceDataLayer(
+    withOptionalSourceLayer(
+      {
+        id: productLayerIdV4(meta, "not-analysed-hatch-fill"),
+        type: "fill",
+        source: meta.sourceId,
+        paint: {
+          "fill-pattern": "not-analysed-hatch",
+          "fill-opacity": 0.42,
+        },
+      },
+      meta
+    )
+  );
+
+  addOrReplaceDataLayer(
+    withOptionalSourceLayer(
+      {
+        id: productLayerIdV4(meta, "not-analysed-outline"),
+        type: "line",
+        source: meta.sourceId,
+        paint: {
+          "line-color": "rgba(220, 228, 240, 0.55)",
+          "line-width": 1,
+          "line-dasharray": [2, 2],
+        },
+      },
+      meta
+    )
+  );
+}
+
+function addGroundMovementStyleLayers(meta) {
+  GROUND_MOVEMENT_CLASSES.forEach((item) => {
+    addOrReplaceDataLayer(
+      withOptionalSourceLayer(
+        {
+          id: productLayerIdV4(meta, `ground-movement-${item.id}-fill`),
+          type: "fill",
+          source: meta.sourceId,
+          filter: groundMovementClassFilter(item),
+          paint: {
+            "fill-color": item.color,
+            "fill-opacity": 0.72,
+          },
+        },
+        meta
+      )
+    );
+
+    addOrReplaceDataLayer(
+      withOptionalSourceLayer(
+        {
+          id: productLayerIdV4(meta, `ground-movement-${item.id}-outline`),
+          type: "line",
+          source: meta.sourceId,
+          filter: groundMovementClassFilter(item),
+          paint: {
+            "line-color": item.color,
+            "line-opacity": 0.42,
+            "line-width": [
+              "interpolate",
+              ["linear"],
+              ["zoom"],
+              8,
+              0.15,
+              12,
+              0.35,
+              16,
+              0.8,
+            ],
+          },
+        },
+        meta
+      )
+    );
+  });
+}
+
+function orderedDamageClassesV4(classes) {
+  const order = ["destroyed", "damaged", "possible"];
+
+  if (!Array.isArray(classes)) {
+    return order;
+  }
+
+  return order.filter((item) => classes.includes(item));
+}
+
+function getDamageClassesForLegendV4(kind, productKey) {
+  const meta = getLoadedSourceMetaV4(kind, productKey);
+
+  if (!meta) {
+    return [];
+  }
+
+  if (Array.isArray(meta.damageClasses)) {
+    return orderedDamageClassesV4(meta.damageClasses);
+  }
+
+  return ["destroyed", "damaged", "possible"];
+}
+
+function getTransportClassesForLegendV4(productKey) {
+  const meta = getLoadedSourceMetaV4("transportationL", productKey);
+  const order = ["highway", "main", "local", "track", "airfieldRunway", "railway"];
+
+  if (!meta) {
+    return [];
+  }
+
+  if (Array.isArray(meta.transportClasses)) {
+    return order.filter((item) => meta.transportClasses.includes(item));
+  }
+
+  return order;
+}
+
+function getTransportAreaClassesForLegendV4(productKey) {
+  const meta = getLoadedSourceMetaV4("transportationA", productKey);
+
+  if (!meta) {
+    return [];
+  }
+
+  if (Array.isArray(meta.transportAreaClasses)) {
+    return ["airfieldAndHeliportDamaged"].filter((item) =>
+      meta.transportAreaClasses.includes(item)
+    );
+  }
+
+  return ["airfieldAndHeliportDamaged"];
+}
+
+function getCrisisClassesForLegendV4(productKey) {
+  const meta = getLoadedSourceMetaV4("ancillaryCrisisInfoP", productKey);
+
+  if (!meta) {
+    return [];
+  }
+
+  if (Array.isArray(meta.crisisClasses)) {
+    return ["blockedRoadInterruption"].filter((item) =>
+      meta.crisisClasses.includes(item)
+    );
+  }
+
+  return ["blockedRoadInterruption"];
+}
+
+function damageClassLabelV4(className) {
+  if (className === "destroyed") return t("destroyed");
+  if (className === "damaged") return t("confirmedDamaged");
+  if (className === "possible") return t("possiblyDamaged");
+  return className;
+}
+
+function renderToggleRowV4({ key, swatchHtml, label, checked = true, extraClass = "" }) {
+  const isChecked = getLayerVisibility(key, checked);
+
+  return `
+    <label class="map-legend-row legend-toggle ${escapeHtml(extraClass)}">
+      <input class="layer-checkbox" type="checkbox" data-layer-toggle="${escapeHtml(key)}" ${isChecked ? "checked" : ""} />
+      ${swatchHtml}
+      <span>${escapeHtml(label)}</span>
+    </label>
+  `;
+}
+
+function renderLegendSectionV4(title, rowsHtml) {
+  const rows = Array.isArray(rowsHtml) ? rowsHtml.filter(Boolean).join("") : String(rowsHtml || "");
+
+  if (!rows.trim()) {
+    return "";
+  }
+
+  return `
+    <div class="legend-section">
+      <div class="legend-section-title">${escapeHtml(title)}</div>
+      ${rows}
+    </div>
+  `;
+}
+
+function renderDamageLegendSectionV4(productKey, kind, title, geometry = "area") {
+  const classes = getDamageClassesForLegendV4(kind, productKey);
+
+  if (!classes.length) {
+    return "";
+  }
+
+  const rows = classes.map((className) => {
+    const key = visibilityKeyV4(productKey, kind, className);
+    const swatchClass = geometry === "point"
+      ? `point-swatch ${className}`
+      : `swatch ${className}`;
+
+    return renderToggleRowV4({
+      key,
+      swatchHtml: `<span class="${escapeHtml(swatchClass)}"></span>`,
+      label: damageClassLabelV4(className),
+      checked: true,
+    });
+  });
+
+  return renderLegendSectionV4(title, rows);
+}
+
+function renderTransportLegendSectionV4(productKey) {
+  const classes = getTransportClassesForLegendV4(productKey);
+
+  if (!classes.length) {
+    return "";
+  }
+
+  const labels = {
+    highway: t("highwayNoVisibleDamage"),
+    main: t("mainRoadNoVisibleDamage"),
+    local: t("localRoadNoVisibleDamage"),
+    track: t("trackNoVisibleDamage"),
+    airfieldRunway: t("airfieldRunwayNoVisibleDamage"),
+    railway: t("railwayNoVisibleDamage"),
+  };
+
+  const swatches = {
+    highway: "highway",
+    main: "main-road",
+    local: "local-road",
+    track: "track",
+    airfieldRunway: "runway",
+    railway: "railway",
+  };
+
+  const rows = classes.map((className) =>
+    renderToggleRowV4({
+      key: visibilityKeyV4(productKey, "transportationL", className),
+      swatchHtml: `<span class="line-swatch ${escapeHtml(swatches[className] || "local-road")}"></span>`,
+      label: labels[className] || className,
+      checked: true,
+      extraClass: "transport-toggle",
+    })
+  );
+
+  return renderLegendSectionV4(t("transportationGrading"), rows);
+}
+
+function renderTransportationAreaLegendSectionV4(productKey) {
+  const classes = getTransportAreaClassesForLegendV4(productKey);
+
+  if (!classes.length) {
+    return "";
+  }
+
+  const rows = classes.map((className) =>
+    renderToggleRowV4({
+      key: visibilityKeyV4(productKey, "transportationA", className),
+      swatchHtml: '<span class="area-swatch transport-area-damaged"></span>',
+      label: t("airfieldAndHeliportDamaged"),
+      checked: true,
+    })
+  );
+
+  return renderLegendSectionV4(t("transportationArea"), rows);
+}
+
+function renderCrisisLegendSectionV4(productKey) {
+  const classes = getCrisisClassesForLegendV4(productKey);
+
+  if (!classes.length) {
+    return "";
+  }
+
+  const rows = classes.map((className) =>
+    renderToggleRowV4({
+      key: visibilityKeyV4(productKey, "ancillaryCrisisInfoP", className),
+      swatchHtml: '<span class="crisis-swatch"></span>',
+      label: t("blockedRoadInterruption"),
+      checked: true,
+    })
+  );
+
+  return renderLegendSectionV4(t("crisisPoints"), rows);
+}
+
+function renderFacilitiesLegendSectionV4(productKey) {
+  const classes = getDamageClassesForLegendV4("facilitiesA", productKey);
+
+  if (!classes.length) {
+    return "";
+  }
+
+  const rows = classes.map((className) => {
+    const swatch =
+      className === "possible"
+        ? '<span class="area-swatch facility-possible"></span>'
+        : '<span class="area-swatch facility-damaged"></span>';
+
+    return renderToggleRowV4({
+      key: visibilityKeyV4(productKey, "facilitiesA", className),
+      swatchHtml: swatch,
+      label: damageClassLabelV4(className),
+      checked: true,
+    });
+  });
+
+  return renderLegendSectionV4(t("facilitiesArea"), rows);
+}
+
+function renderNotAnalysedLegendSectionV4(productKey) {
+  if (!getLoadedSourceMetaV4("notAnalysedA", productKey)) {
+    return "";
+  }
+
+  return renderLegendSectionV4(
+    t("notAnalysed"),
+    renderToggleRowV4({
+      key: visibilityKeyV4(productKey, "notAnalysedA", "default"),
+      swatchHtml: '<span class="swatch hatch"></span>',
+      label: t("notAnalysed"),
+      checked: false,
+    })
+  );
+}
+
+function renderGroundMovementLegendSectionV4(productKey) {
+  if (!getLoadedSourceMetaV4("groundMovementA", productKey)) {
+    return "";
+  }
+
+  const rows = [
+    `<div class="legend-subtitle">${escapeHtml(t("groundMovementM"))}</div>`,
+    ...GROUND_MOVEMENT_CLASSES.map((item) =>
+      renderToggleRowV4({
+        key: visibilityKeyV4(productKey, "groundMovementA", item.key),
+        swatchHtml: `<span class="ground-swatch gm-${escapeHtml(item.id)}"></span>`,
+        label: item.value,
+        checked: true,
+      })
+    ),
+  ];
+
+  return renderLegendSectionV4(t("groundMovementGrading"), rows);
+}
+
+function renderSourceImageryLegendSectionV4(info, productKey = "") {
+  const cogs = (Array.isArray(info?.cogLayers) ? info.cogLayers : [])
+    .filter((item) => !productKey || String(item.productKey) === String(productKey));
+
+  if (!cogs.length) {
+    return "";
+  }
+
+  const rows = cogs
+    .map((item) => {
+      return `
+        <div class="map-legend-row">
+          <span class="image-swatch"></span>
+          <a class="image-legend-link" href="${escapeHtml(item.url)}" target="_blank" rel="noopener noreferrer">${escapeHtml(item.label)}</a>
+        </div>
+      `;
+    })
+    .join("");
+
+  return renderLegendSectionV4(t("sourceImagery"), rows);
+}
+
+function renderBasemapLabelsLegendSectionV4() {
+  const disabled = currentBasemap !== "satellite";
+  const checked = satelliteLabelsEnabled && !disabled;
+
+  return renderLegendSectionV4(
+    t("basemapTitle"),
+    `
+      <label class="map-legend-row legend-toggle ${disabled ? "disabled" : ""}">
+        <input
+          class="layer-checkbox"
+          type="checkbox"
+          data-basemap-labels-toggle="labels"
+          ${checked ? "checked" : ""}
+          ${disabled ? "disabled" : ""}
+        />
+        <span class="image-swatch"></span>
+        <span>${escapeHtml(t("satelliteLabels"))}</span>
+      </label>
+    `
+  );
+}
+
+function renderAoiLegendSectionV4() {
+  return renderLegendSectionV4(
+    t("generalInformation"),
+    renderToggleRowV4({
+      key: "aoi:default",
+      swatchHtml: '<span class="aoi-swatch"></span>',
+      label: t("areaOfInterest"),
+      checked: true,
+    })
+  );
+}
+
+function renderProductLegendSectionsV4(info, product) {
+  const productKey = getProductKey(product);
+
+  return [
+    renderCrisisLegendSectionV4(productKey),
+    renderDamageLegendSectionV4(productKey, "builtUpP", t("builtUpPoints"), "point"),
+    renderDamageLegendSectionV4(productKey, "builtUpA", t("builtUpArea"), "area"),
+    renderTransportLegendSectionV4(productKey),
+    renderNotAnalysedLegendSectionV4(productKey),
+    renderFacilitiesLegendSectionV4(productKey),
+    renderTransportationAreaLegendSectionV4(productKey),
+    renderGroundMovementLegendSectionV4(productKey),
+    renderSourceImageryLegendSectionV4(info, productKey),
+  ].filter(Boolean);
+}
+
+function renderDynamicLegend(info = latestSelectedProductInfo) {
+  const body = document.querySelector("#map-legend .map-legend-body");
+
+  if (!body) {
+    return;
+  }
+
+  const products = Array.isArray(info?.products) && info.products.length
+    ? info.products
+    : info?.product
+      ? [info.product]
+      : [];
+
+  const multiple = products.length > 1;
+  const sections = [];
+
+  products.forEach((product) => {
+    const productSections = renderProductLegendSectionsV4(info, product);
+
+    if (!productSections.length) {
+      return;
+    }
+
+    if (multiple) {
+      sections.push(`
+        <div class="legend-product-group">
+          <div class="legend-product-title">${escapeHtml(getProductLabel(product))}</div>
+          ${productSections.join("")}
+        </div>
+      `);
+    } else {
+      sections.push(...productSections);
+    }
+  });
+
+  sections.push(renderBasemapLabelsLegendSectionV4());
+  sections.push(renderAoiLegendSectionV4());
+
+  const cleanSections = sections.filter(Boolean);
+
+  if (!cleanSections.length) {
+    body.innerHTML = `<div class="map-legend-placeholder">${escapeHtml(t("noDisplayableLayers"))}</div>`;
+  } else {
+    body.innerHTML = cleanSections.join("");
+  }
+
+  syncLayerToggleInputs();
+}
+
+function updateLegendAvailability() {
+  syncLayerToggleInputs();
+}
+
+function applyLayerVisibility() {
+  syncLayerToggleInputs();
+
+  if (!mapReady || !map) {
+    return;
+  }
+
+  getLoadedSourceMetasV4("builtUpA").forEach((meta) => {
+    ["built-up-fill", "built-up-outline"].forEach((baseId) => {
+      const layerId = productLayerIdV4(meta, baseId);
+      if (map.getLayer(layerId)) {
+        map.setFilter(layerId, buildDamageLayerFilterForMetaV4(meta));
+      }
+    });
+  });
+
+  getLoadedSourceMetasV4("builtUpP").forEach((meta) => {
+    ["built-up-point-halo", "built-up-point-circle"].forEach((baseId) => {
+      const layerId = productLayerIdV4(meta, baseId);
+      if (map.getLayer(layerId)) {
+        map.setFilter(layerId, buildDamageLayerFilterForMetaV4(meta));
+      }
+    });
+  });
+
+  getLoadedSourceMetasV4("facilitiesA").forEach((meta) => {
+    ["facilities-area-fill", "facilities-area-outline"].forEach((baseId) => {
+      const layerId = productLayerIdV4(meta, baseId);
+      if (map.getLayer(layerId)) {
+        map.setFilter(layerId, buildDamageLayerFilterForMetaV4(meta));
+      }
+    });
+  });
+
+  getLoadedSourceMetasV4("transportationA").forEach((meta) => {
+    ["transportation-area-fill", "transportation-area-outline"].forEach((baseId) => {
+      const layerId = productLayerIdV4(meta, baseId);
+      if (map.getLayer(layerId)) {
+        map.setFilter(layerId, transportationAreaFilterExpressionV4(meta));
+      }
+    });
+  });
+
+  getLoadedSourceMetasV4("ancillaryCrisisInfoP").forEach((meta) => {
+    ["crisis-point-halo", "crisis-point-circle"].forEach((baseId) => {
+      const layerId = productLayerIdV4(meta, baseId);
+      if (map.getLayer(layerId)) {
+        map.setFilter(layerId, ancillaryCrisisInfoFilterExpressionV4(meta));
+      }
+    });
+  });
+
+  getLoadedSourceMetasV4("transportationL").forEach((meta) => {
+    const productKey = meta.productKey || "default";
+
+    const configs = [
+      ["transportation-highway-line", "highway"],
+      ["transportation-main-road-line", "main"],
+      ["transportation-local-road-line", "local"],
+      ["transportation-track-line", "track"],
+      ["transportation-airfield-runway-line", "airfieldRunway"],
+      ["transportation-railway-line", "railway"],
+      ["transportation-railway-ticks", "railway"],
+    ];
+
+    configs.forEach(([baseId, className]) => {
+      setLayerVisibility(
+        productLayerIdV4(meta, baseId),
+        getLayerVisibility(visibilityKeyV4(productKey, "transportationL", className), true)
+      );
+    });
+  });
+
+  getLoadedSourceMetasV4("groundMovementA").forEach((meta) => {
+    const productKey = meta.productKey || "default";
+
+    GROUND_MOVEMENT_CLASSES.forEach((item) => {
+      const visible = getLayerVisibility(
+        visibilityKeyV4(productKey, "groundMovementA", item.key),
+        true
+      );
+
+      setLayerVisibility(productLayerIdV4(meta, `ground-movement-${item.id}-fill`), visible);
+      setLayerVisibility(productLayerIdV4(meta, `ground-movement-${item.id}-outline`), visible);
+    });
+  });
+
+  getLoadedSourceMetasV4("notAnalysedA").forEach((meta) => {
+    const productKey = meta.productKey || "default";
+    const showNotAnalysed = getLayerVisibility(
+      visibilityKeyV4(productKey, "notAnalysedA", "default"),
+      false
+    );
+
+    setLayerVisibility(productLayerIdV4(meta, "not-analysed-fill"), showNotAnalysed);
+    setLayerVisibility(productLayerIdV4(meta, "not-analysed-hatch-fill"), showNotAnalysed);
+    setLayerVisibility(productLayerIdV4(meta, "not-analysed-outline"), showNotAnalysed);
+  });
+
+  const showAoi = getLayerVisibility("aoi:default", true);
+
+  AOI_LAYER_IDS.forEach((layerId) => {
+    setLayerVisibility(layerId, showAoi);
+  });
+
+  syncLayerToggleInputs();
+}
+
+function getStatusProgressNodesV4() {
+  return {
+    progress: document.getElementById("status-progress"),
+    bar: document.getElementById("status-progress-bar"),
+  };
+}
+
+function hideStatusProgressV4() {
+  const { progress, bar } = getStatusProgressNodesV4();
+  if (!progress || !bar) return;
+
+  progress.classList.add("hidden");
+  progress.classList.remove("determinate");
+  progress.removeAttribute("aria-valuenow");
+  bar.style.width = "";
+}
+
+function showStatusProgressV4(percent = null) {
+  const { progress, bar } = getStatusProgressNodesV4();
+  if (!progress || !bar) return;
+
+  progress.classList.remove("hidden");
+
+  if (typeof percent === "number" && Number.isFinite(percent)) {
+    const clamped = Math.max(0, Math.min(100, percent));
+    progress.classList.add("determinate");
+    progress.setAttribute("aria-valuenow", String(Math.round(clamped)));
+    bar.style.width = `${clamped}%`;
+  } else {
+    progress.classList.remove("determinate");
+    progress.removeAttribute("aria-valuenow");
+    bar.style.width = "";
+  }
+}
+
+function setStatus(type, title, message, showRetry) {
+  if (!els.status || !els.statusTitle || !els.statusMessage || !els.retry) {
+    return;
+  }
+
+  els.status.classList.remove("hidden", "loading", "success", "error");
+  els.status.classList.add(type);
+
+  els.statusTitle.textContent = title;
+  els.statusMessage.textContent = message;
+  els.retry.classList.toggle("hidden", !showRetry);
+
+  hideStatusProgressV4();
+}
+
+function maybeShowLargeLayerDownloadNotice(kind, url) {
+  if (!isPotentiallyLargeCopernicusLayer(kind, url)) {
+    return;
+  }
+
+  if (isJsonDocumentMemoryCached(url)) {
+    return;
+  }
+
+  if (!els.status || !els.statusTitle || !els.statusMessage) {
+    return;
+  }
+
+  setStatus(
+    "loading",
+    t("largeLayerLoadingTitle"),
+    t("largeLayerLoadingText"),
+    false
+  );
+
+  showStatusProgressV4(null);
+}
+/* Inline product selector and product comparison override: end */
+
+/* Product checkbox selector and data status grid correction: start */
+
+function parseSelectedProductKeysV5(products = []) {
+  const list = Array.isArray(products) ? products : [];
+  const useful = list.filter(productHasUsefulLayers);
+  const raw = String(selectedProductKey || "").trim();
+
+  // Compatibility with old URLs produced by the previous "All products" button.
+  if (raw === PRODUCT_ALL_KEY_V4 || raw.toLowerCase() === "all") {
+    return useful.map(getProductKey);
+  }
+
+  if (!raw) {
+    const fallback = chooseAoiProduct({ products: list }) || list[0] || null;
+    return fallback ? [getProductKey(fallback)] : [];
+  }
+
+  const wanted = raw
+    .split(",")
+    .map((item) => item.trim())
+    .filter(Boolean);
+
+  const valid = wanted.filter((key) =>
+    list.some((product) => getProductKey(product) === key)
+  );
+
+  if (valid.length) {
+    return valid;
+  }
+
+  const fallback = chooseAoiProduct({ products: list }) || list[0] || null;
+  return fallback ? [getProductKey(fallback)] : [];
+}
+
+function selectedProductKeyStringV5(keys = []) {
+  return Array.from(new Set(keys.map((key) => String(key || "").trim()).filter(Boolean))).join(",");
+}
+
+function isAllProductsSelectedV4() {
+  // Keep the function for compatibility, but the UI no longer exposes a forced "all" mode.
+  return false;
+}
+
+function getSelectedProductsForAoiV4(aoi, products = getProductsSortedForAoi(aoi)) {
+  const list = Array.isArray(products) ? products : [];
+  const selectedKeys = new Set(parseSelectedProductKeysV5(list));
+
+  return list.filter((product) => selectedKeys.has(getProductKey(product)));
+}
+
+function chooseSelectedProductForAoi(aoi, products = getProductsSortedForAoi(aoi)) {
+  const selected = getSelectedProductsForAoiV4(aoi, products);
+
+  if (selected.length) {
+    return selected[0];
+  }
+
+  return products[0] || null;
+}
+
+function renderInlineProductOptionsV4(aoi) {
+  const products = getProductsSortedForAoi(aoi);
+
+  if (products.length <= 1) {
+    return "";
+  }
+
+  const selectedKeys = new Set(parseSelectedProductKeysV5(products));
+
+  const productRows = products.map((product) => {
+    const productKey = getProductKey(product);
+    const available = productHasUsefulLayers(product);
+    const checked = selectedKeys.has(productKey);
+    const statusLine = formatProductStatusLineV4(product);
+
+    return `
+      <label class="aoi-product-check-row ${checked ? "active-product-check" : ""} ${available ? "" : "disabled-product-check"}">
+        <input
+          class="aoi-product-checkbox"
+          type="checkbox"
+          data-product-key="${escapeHtml(productKey)}"
+          ${checked ? "checked" : ""}
+          ${available ? "" : "disabled"}
+        />
+        <span class="aoi-product-check-text">
+          <strong>${escapeHtml(getProductLabel(product))}</strong>
+          <small>${escapeHtml(statusLine)}</small>
+        </span>
+      </label>
+    `;
+  }).join("");
+
+  return `
+    <div class="aoi-product-options checkbox-product-options" aria-label="Product selector">
+      ${productRows}
+    </div>
+  `;
+}
+
+function setupUiEvents() {
+  const oldCaracasButton = document.getElementById("load-caracas");
+
+  if (oldCaracasButton) {
+    oldCaracasButton.addEventListener("click", () => {
+      selectedAoiNumber = 2;
+      selectedProductKey = "";
+      updateAoiUrlParam(2);
+      clearSelectedProductUrlParam();
+      closeMobileSidebar();
+      loadAoi(2);
+    });
+  }
+
+  if (els.aoiList) {
+    els.aoiList.addEventListener("change", (event) => {
+      const input = event.target.closest(".aoi-product-checkbox[data-product-key]");
+
+      if (!input) {
+        return;
+      }
+
+      const options = input.closest(".aoi-product-options");
+      if (!options) {
+        return;
+      }
+
+      const checkedKeys = Array.from(
+        options.querySelectorAll(".aoi-product-checkbox[data-product-key]:checked")
+      ).map((node) => String(node.dataset.productKey || "").trim()).filter(Boolean);
+
+      // Do not allow an empty product selection; it would look like a data failure.
+      if (!checkedKeys.length) {
+        input.checked = true;
+        return;
+      }
+
+      selectedProductKey = selectedProductKeyStringV5(checkedKeys);
+      updateSelectedProductUrlParam(selectedProductKey);
+      loadAoi(selectedAoiNumber);
+    });
+
+    els.aoiList.addEventListener("click", (event) => {
+      // Product checkboxes are handled by the change listener above.
+      if (event.target.closest(".aoi-product-options")) {
+        return;
+      }
+
+      const button = event.target.closest("[data-aoi-number]");
+      if (!button) return;
+
+      const aoiNumber = Number(button.dataset.aoiNumber);
+
+      if (!Number.isFinite(aoiNumber)) {
+        return;
+      }
+
+      selectedAoiNumber = aoiNumber;
+      selectedProductKey = "";
+      updateAoiUrlParam(aoiNumber);
+      clearSelectedProductUrlParam();
+      closeMobileSidebar();
+      loadAoi(aoiNumber);
+    });
+  }
+
+  const sidebarToggle = document.getElementById("sidebar-toggle");
+  if (sidebarToggle) {
+    sidebarToggle.addEventListener("click", () => {
+      document.body.classList.toggle("sidebar-open");
+    });
+  }
+
+  if (els.retry) {
+    els.retry.addEventListener("click", () => {
+      loadAoi(selectedAoiNumber);
+    });
+  }
+
+  const refreshDataButton = document.getElementById("refresh-data-btn");
+  if (refreshDataButton) {
+    refreshDataButton.addEventListener("click", forceRefreshCopernicusData);
+  }
+
+  document.addEventListener("keydown", (event) => {
+    if (event.key === "Escape") {
+      closeMobileSidebar();
+    }
+  });
+}
+
+function renderDataStatusPanel() {
+  if (!els.dataProduct) {
+    return;
+  }
+
+  const meta = latestDataStatusMeta || {};
+
+  const aoiText = meta.aoiName
+    ? `${meta.aoiName} AOI${String(meta.aoiNumber ?? "").padStart(2, "0")}`
+    : "AOI";
+
+  const productParts = [aoiText];
+
+  if (meta.productSummary) {
+    productParts.push(meta.productSummary);
+  } else if (meta.productType) {
+    productParts.push(meta.productType);
+  }
+
+  // Keep this line readable. Product id/status are useful in console/API, but too noisy here.
+  setNodeText(els.dataProduct, productParts.join(" · "));
+  setNodeText(els.dataDelivery, formatDateTime(meta.deliveryTime || meta.expectedDelivery));
+  setNodeText(els.dataAcquisition, formatDateTime(meta.acquisitionTime));
+  setNodeText(els.dataLastChecked, formatDateTime(meta.lastChecked));
+  setNodeText(els.dataSuccessfulLoad, formatDateTime(meta.successfulLoadTime));
+  setNodeText(els.dataCacheStatus, formatCacheStatus(meta));
+
+  if (els.dataReportLink && meta.reportLink) {
+    els.dataReportLink.href = meta.reportLink;
+    els.dataReportLink.classList.remove("hidden");
+  }
+
+  if (els.dataDownloadLink) {
+    const downloadUrl = meta.downloadPath || meta.productsPath || "";
+
+    if (downloadUrl) {
+      els.dataDownloadLink.href = downloadUrl;
+      els.dataDownloadLink.classList.remove("hidden");
+      els.dataDownloadLink.textContent = "ZIP";
+    } else {
+      els.dataDownloadLink.classList.add("hidden");
+    }
+  }
+
+  renderFreshnessBadge(meta);
+}
+
+function setBasemap(mode) {
+  currentBasemap = mode === "street" ? "street" : "satellite";
+
+  document.querySelectorAll("[data-basemap]").forEach((button) => {
+    button.classList.toggle("active", button.dataset.basemap === currentBasemap);
+  });
+
+  if (els.labelsToggle) {
+    els.labelsToggle.disabled = currentBasemap !== "satellite";
+  }
+
+  if (!mapReady) {
+    applyLayerVisibility();
+    return;
+  }
+
+  setLayerVisibility(BASE_LAYER_IDS.satellite, currentBasemap === "satellite");
+  setLayerVisibility(BASE_LAYER_IDS.street, currentBasemap === "street");
+
+  const showLabels = currentBasemap === "satellite" && satelliteLabelsEnabled;
+  setLayerVisibility(BASE_LAYER_IDS.labels, showLabels);
+
+  moveLabelsToTop();
+  applyLayerVisibility();
+
+  // Refresh the legend so the street-label checkbox is enabled/disabled correctly.
+  if (latestSelectedProductInfo && typeof renderDynamicLegend === "function") {
+    renderDynamicLegend(latestSelectedProductInfo);
+  }
+}
+
+/* Product checkbox selector and data status grid correction: end */
+
+/* Real streamed download progress override: start */
+
+function formatBytesForProgressV6(bytes) {
+  const value = Number(bytes);
+
+  if (!Number.isFinite(value) || value < 0) {
+    return "—";
+  }
+
+  const units = ["B", "KB", "MB", "GB"];
+  let size = value;
+  let unitIndex = 0;
+
+  while (size >= 1024 && unitIndex < units.length - 1) {
+    size /= 1024;
+    unitIndex += 1;
+  }
+
+  const digits = unitIndex === 0 ? 0 : size >= 10 ? 1 : 2;
+  return `${size.toFixed(digits)} ${units[unitIndex]}`;
+}
+
+function getStatusProgressNodesV4() {
+  return {
+    progress: document.getElementById("status-progress"),
+    bar: document.getElementById("status-progress-bar"),
+    label: document.getElementById("status-progress-label"),
+  };
+}
+
+function hideStatusProgressV4() {
+  const { progress, bar, label } = getStatusProgressNodesV4();
+
+  if (progress) {
+    progress.classList.add("hidden");
+    progress.classList.remove("determinate", "unknown");
+    progress.setAttribute("aria-hidden", "true");
+    progress.removeAttribute("role");
+    progress.removeAttribute("aria-valuemin");
+    progress.removeAttribute("aria-valuemax");
+    progress.removeAttribute("aria-valuenow");
+    progress.removeAttribute("aria-label");
+  }
+
+  if (bar) {
+    bar.style.width = "";
+  }
+
+  if (label) {
+    label.classList.add("hidden");
+    label.setAttribute("aria-hidden", "true");
+    label.textContent = "";
+  }
+}
+
+function showStatusProgressV4(percent = null, labelText = "") {
+  const { progress, bar, label } = getStatusProgressNodesV4();
+
+  if (!progress || !bar) {
+    return;
+  }
+
+  progress.classList.remove("hidden");
+  progress.setAttribute("aria-hidden", "false");
+
+  const hasPercent = typeof percent === "number" && Number.isFinite(percent);
+
+  if (hasPercent) {
+    const clamped = Math.max(0, Math.min(100, percent));
+
+    progress.classList.add("determinate");
+    progress.classList.remove("unknown");
+    progress.setAttribute("role", "progressbar");
+    progress.setAttribute("aria-valuemin", "0");
+    progress.setAttribute("aria-valuemax", "100");
+    progress.setAttribute("aria-valuenow", String(Math.round(clamped)));
+    progress.setAttribute("aria-label", "Download progress");
+    bar.style.width = `${clamped}%`;
+
+    if (label) {
+      label.textContent = labelText || `${Math.round(clamped)}%`;
+      label.classList.remove("hidden");
+      label.setAttribute("aria-hidden", "false");
+    }
+
+    return;
+  }
+
+  // Unknown total size: do not show a fake moving percentage/progress bar.
+  progress.classList.remove("determinate");
+  progress.classList.add("unknown");
+  progress.setAttribute("role", "status");
+  progress.removeAttribute("aria-valuemin");
+  progress.removeAttribute("aria-valuemax");
+  progress.removeAttribute("aria-valuenow");
+  progress.setAttribute("aria-label", "Downloading");
+  bar.style.width = "0%";
+
+  if (label) {
+    label.textContent = labelText || "";
+    label.classList.toggle("hidden", !label.textContent);
+    label.setAttribute("aria-hidden", label.textContent ? "false" : "true");
+  }
+}
+
+function shouldReportDownloadProgressV6(requestUrl, label, options = {}) {
+  if (options.reportProgress === false) {
+    return false;
+  }
+
+  if (options.reportProgress === true) {
+    return true;
+  }
+
+  const text = `${label || ""} ${requestUrl || ""}`.toLowerCase();
+
+  // Currently most important for AOI00 ground movement, but this also works for
+  // future large Copernicus layers.
+  return (
+    text.includes("groundmovement") ||
+    text.includes("ground_movement") ||
+    text.includes("ground-movement") ||
+    text.includes("grm_product")
+  );
+}
+
+async function readResponseTextWithProgressV6(response, label, requestUrl, options = {}) {
+  const totalHeader = response.headers.get("content-length");
+  const totalBytes = Number(totalHeader);
+  const hasTotal = Number.isFinite(totalBytes) && totalBytes > 0;
+
+  if (!response.body || typeof response.body.getReader !== "function") {
+    const text = await response.text();
+
+    if (hasTotal) {
+      showStatusProgressV4(
+        100,
+        `100% · ${formatBytesForProgressV6(totalBytes)} / ${formatBytesForProgressV6(totalBytes)}`
+      );
+    }
+
+    return text;
+  }
+
+  const reader = response.body.getReader();
+  const chunks = [];
+  let receivedBytes = 0;
+  let lastUiUpdate = 0;
+
+  if (hasTotal) {
+    showStatusProgressV4(
+      0,
+      `0% · 0 B / ${formatBytesForProgressV6(totalBytes)}`
+    );
+  } else {
+    showStatusProgressV4(
+      null,
+      `0 B`
+    );
+  }
+
+  while (true) {
+    const { done, value } = await reader.read();
+
+    if (done) {
+      break;
+    }
+
+    if (value) {
+      chunks.push(value);
+      receivedBytes += value.byteLength || value.length || 0;
+    }
+
+    const now = performance.now();
+
+    if (now - lastUiUpdate >= 120) {
+      lastUiUpdate = now;
+
+      if (hasTotal) {
+        const percent = Math.max(0, Math.min(100, (receivedBytes / totalBytes) * 100));
+        showStatusProgressV4(
+          percent,
+          `${Math.round(percent)}% · ${formatBytesForProgressV6(receivedBytes)} / ${formatBytesForProgressV6(totalBytes)}`
+        );
+      } else {
+        showStatusProgressV4(
+          null,
+          `${formatBytesForProgressV6(receivedBytes)}`
+        );
+      }
+    }
+  }
+
+  if (hasTotal) {
+    showStatusProgressV4(
+      100,
+      `100% · ${formatBytesForProgressV6(receivedBytes)} / ${formatBytesForProgressV6(totalBytes)}`
+    );
+  } else {
+    showStatusProgressV4(
+      null,
+      `${formatBytesForProgressV6(receivedBytes)}`
+    );
+  }
+
+  return await new Blob(chunks, {
+    type: response.headers.get("content-type") || "application/json",
+  }).text();
+}
+
+async function fetchJsonDocument(url, label, options = {}) {
+  const requestUrl = String(url || "").trim();
+
+  if (!requestUrl) {
+    throw new Error(`${label} URL is empty.`);
+  }
+
+  const cacheDocument = Boolean(options.cacheDocument);
+  const cacheKey = requestUrl;
+
+  if (cacheDocument && JSON_DOCUMENT_MEMORY_CACHE.has(cacheKey)) {
+    console.info(`${label}: using in-memory cached JSON document.`);
+    return JSON_DOCUMENT_MEMORY_CACHE.get(cacheKey);
+  }
+
+  const task = (async () => {
+    const response = await fetch(requestUrl, {
+      method: "GET",
+      mode: "cors",
+
+      // Manifest fetches should stay fresh.
+      // Layer JSON files are versioned URLs, so browser cache is safe.
+      cache: options.fetchCache || (cacheDocument ? "force-cache" : "no-store"),
+
+      headers: {
+        Accept: "application/json, application/geo+json, application/tilejson, */*",
+      },
+    });
+
+    if (!response.ok) {
+      throw new Error(`${label} HTTP ${response.status}: ${requestUrl}`);
+    }
+
+    const reportProgress = shouldReportDownloadProgressV6(requestUrl, label, options);
+
+    const text = reportProgress
+      ? await readResponseTextWithProgressV6(response, label, requestUrl, options)
+      : await response.text();
+
+    try {
+      return JSON.parse(text);
+    } catch (error) {
+      console.error(`${label} was not valid JSON. First 300 chars:`, text.slice(0, 300));
+      throw new Error(`${label} is not valid JSON: ${requestUrl}`);
+    }
+  })();
+
+  if (cacheDocument) {
+    JSON_DOCUMENT_MEMORY_CACHE.set(cacheKey, task);
+
+    try {
+      return await task;
+    } catch (error) {
+      if (JSON_DOCUMENT_MEMORY_CACHE.get(cacheKey) === task) {
+        JSON_DOCUMENT_MEMORY_CACHE.delete(cacheKey);
+      }
+
+      throw error;
+    }
+  }
+
+  return task;
+}
+
+function maybeShowLargeLayerDownloadNotice(kind, url) {
+  if (!isPotentiallyLargeCopernicusLayer(kind, url)) {
+    return;
+  }
+
+  if (isJsonDocumentMemoryCached(url)) {
+    return;
+  }
+
+  if (!els.status || !els.statusTitle || !els.statusMessage) {
+    return;
+  }
+
+  setStatus(
+    "loading",
+    t("largeLayerLoadingTitle"),
+    t("largeLayerLoadingText"),
+    false
+  );
+
+  // Real percentage begins as soon as response Content-Length is available.
+  // Before that, show 0% rather than a fake indeterminate animation.
+  showStatusProgressV4(0, "0%");
+}
+/* Real streamed download progress override: end */

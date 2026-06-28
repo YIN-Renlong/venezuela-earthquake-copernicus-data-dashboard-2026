@@ -22,10 +22,10 @@
   <link rel="preconnect" href="https://rapidmapping-viewer.s3.eu-west-1.amazonaws.com" />
 
   <link href="https://unpkg.com/maplibre-gl@4.7.1/dist/maplibre-gl.css" rel="stylesheet" />
-  <link rel="stylesheet" href="style.css?v=cache-title-1782503962" />
+  <link rel="stylesheet" href="style.css?v=cache-real-download-progress-1782632166" />
 
   <script src="https://unpkg.com/maplibre-gl@4.7.1/dist/maplibre-gl.js" defer></script>
-  <script src="app.js?v=cache-title-1782503962" defer></script>
+  <script src="app.js?v=cache-real-download-progress-1782632166" defer></script>
 </head>
 
 <body>
@@ -74,6 +74,11 @@
         </div>
       </section>
 
+      <section id="product-selector-panel" class="panel product-selector-panel hidden">
+        <h2 data-i18n="productsTitle">Productos</h2>
+        <div id="product-list" class="product-list"></div>
+      </section>
+
       <section class="panel">
         <h2 data-i18n="basemapTitle">Mapa base</h2>
 
@@ -98,7 +103,7 @@
             Calles OSM suaves</button>
         </div>
 
-        <label class="toggle-row">
+        <label class="toggle-row sidebar-satellite-labels-row hidden">
           <input id="satellite-labels-toggle" type="checkbox" checked />
           <span data-i18n="satelliteLabels">Mostrar nombres de calles sobre satélite</span>
         </label>
@@ -217,7 +222,7 @@
 
         <p class="small footer-credit">
           <span data-i18n="footerCredit">
-            Construido por YIN Renlong como interfaz pública no oficial. No recopila datos de rescate, víctimas ni personas desaparecidas. Si encuentra un problema,
+            Interfaz pública no oficial. No recopila datos de rescate, víctimas ni personas desaparecidas. Si encuentra un problema,
           </span>
           <a
             id="project-issue-link"
@@ -226,6 +231,15 @@
             rel="noopener noreferrer"
             data-i18n="footerGithubLink"
           >visite el proyecto en GitHub</a><span data-i18n="footerPeriod">.</span>
+        </p>
+
+        <p class="small footer-author">
+          <span data-i18n="footerAuthorPrefix">Construido por</span>
+          <a
+            href="https://www.yin.roma.it/"
+            target="_blank"
+            rel="noopener noreferrer"
+          >YIN Renlong</a>
         </p>
       </footer>
     </aside>
@@ -253,24 +267,24 @@
         </div>
 
         <div class="map-legend-body">
-          <div class="legend-section" data-legend-section="builtUp">
+          <div class="legend-section" data-legend-section="builtUpArea">
             <div class="legend-section-title" data-i18n="builtUpGrading">
               Built Up Grading
             </div>
 
-            <label data-legend-row="builtUp" class="map-legend-row legend-toggle">
+            <label data-builtup-area-row="destroyed" class="map-legend-row legend-toggle">
               <input class="layer-checkbox" type="checkbox" data-layer-toggle="destroyed" checked />
               <span class="swatch destroyed"></span>
               <span data-i18n="destroyed">Destruido</span>
             </label>
 
-            <label data-legend-row="builtUp" class="map-legend-row legend-toggle">
+            <label data-builtup-area-row="damaged" class="map-legend-row legend-toggle">
               <input class="layer-checkbox" type="checkbox" data-layer-toggle="damaged" checked />
               <span class="swatch damaged"></span>
               <span data-i18n="confirmedDamaged">Daño / daño confirmado</span>
             </label>
 
-            <label data-legend-row="builtUp" class="map-legend-row legend-toggle">
+            <label data-builtup-area-row="possible" class="map-legend-row legend-toggle">
               <input class="layer-checkbox" type="checkbox" data-layer-toggle="possible" checked />
               <span class="swatch possible"></span>
               <span data-i18n="possiblyDamaged">Posible daño</span>
@@ -280,6 +294,30 @@
               <input class="layer-checkbox" type="checkbox" data-layer-toggle="notAnalysed" />
               <span class="swatch hatch"></span>
               <span data-i18n="notAnalysed">No analizado / nubes</span>
+            </label>
+          </div>
+
+          <div class="legend-section" data-legend-section="builtUpPoint">
+            <div class="legend-section-title" data-i18n="builtUpPoints">
+              Built Up Points
+            </div>
+
+            <label data-builtup-point-row="destroyed" class="map-legend-row legend-toggle">
+              <input class="layer-checkbox" type="checkbox" data-layer-toggle="destroyed" checked />
+              <span class="point-swatch destroyed"></span>
+              <span data-i18n="destroyed">Destruido</span>
+            </label>
+
+            <label data-builtup-point-row="damaged" class="map-legend-row legend-toggle">
+              <input class="layer-checkbox" type="checkbox" data-layer-toggle="damaged" checked />
+              <span class="point-swatch damaged"></span>
+              <span data-i18n="confirmedDamaged">Daño / daño confirmado</span>
+            </label>
+
+            <label data-builtup-point-row="possible" class="map-legend-row legend-toggle">
+              <input class="layer-checkbox" type="checkbox" data-layer-toggle="possible" checked />
+              <span class="point-swatch possible"></span>
+              <span data-i18n="possiblyDamaged">Posible daño</span>
             </label>
           </div>
           <div class="legend-section" data-legend-section="groundMovement">
@@ -344,39 +382,42 @@
               <span class="ground-swatch gm-above-high"></span>
               <span data-i18n="gmAboveHigh">Above 0.5</span>
             </label>
-          </div>
-
-
-                    <div class="legend-section" data-legend-section="transportation">
+          </div>          <div class="legend-section" data-legend-section="transportation">
             <div class="legend-section-title" data-i18n="transportationGrading">
               Red vial y ferroviaria
             </div>
 
-            <label data-legend-row="transportation" class="map-legend-row legend-toggle transport-toggle">
+            <label data-legend-row="transportation" data-transport-row="highway" class="map-legend-row legend-toggle transport-toggle">
               <input class="layer-checkbox" type="checkbox" data-layer-toggle="transportHighway" checked />
               <span class="line-swatch highway"></span>
               <span data-i18n="highwayNoVisibleDamage">Autopista, sin daño visible</span>
             </label>
 
-            <label data-legend-row="transportation" class="map-legend-row legend-toggle transport-toggle">
+            <label data-legend-row="transportation" data-transport-row="main" class="map-legend-row legend-toggle transport-toggle">
               <input class="layer-checkbox" type="checkbox" data-layer-toggle="transportMain" checked />
               <span class="line-swatch main-road"></span>
               <span data-i18n="mainRoadNoVisibleDamage">Vía principal, sin daño visible</span>
             </label>
 
-            <label data-legend-row="transportation" class="map-legend-row legend-toggle transport-toggle">
+            <label data-legend-row="transportation" data-transport-row="local" class="map-legend-row legend-toggle transport-toggle">
               <input class="layer-checkbox" type="checkbox" data-layer-toggle="transportLocal" checked />
               <span class="line-swatch local-road"></span>
               <span data-i18n="localRoadNoVisibleDamage">Vía local, sin daño visible</span>
             </label>
 
-            <label data-legend-row="transportation" class="map-legend-row legend-toggle transport-toggle">
+            <label data-legend-row="transportation" data-transport-row="track" class="map-legend-row legend-toggle transport-toggle">
               <input class="layer-checkbox" type="checkbox" data-layer-toggle="transportTrack" checked />
               <span class="line-swatch track"></span>
               <span data-i18n="trackNoVisibleDamage">Camino / pista, sin daño visible</span>
             </label>
 
-            <label data-legend-row="transportation" class="map-legend-row legend-toggle transport-toggle">
+            <label data-legend-row="transportation" data-transport-row="airfieldRunway" class="map-legend-row legend-toggle transport-toggle">
+              <input class="layer-checkbox" type="checkbox" data-layer-toggle="transportAirfieldRunway" checked />
+              <span class="line-swatch runway"></span>
+              <span data-i18n="airfieldRunwayNoVisibleDamage">Pista de aeródromo, sin daño visible</span>
+            </label>
+
+            <label data-legend-row="transportation" data-transport-row="railway" class="map-legend-row legend-toggle transport-toggle">
               <input class="layer-checkbox" type="checkbox" data-layer-toggle="transportRailway" checked />
               <span class="line-swatch railway"></span>
               <span data-i18n="railwayNoVisibleDamage">Ferrocarril / metro, sin daño visible</span>
@@ -403,6 +444,10 @@
         <div>
           <strong id="status-title">Cargando datos satelitales</strong>
           <p id="status-message">Obteniendo capas públicas de Copernicus EMSR884.</p>
+          <div id="status-progress" class="status-progress hidden" aria-hidden="true">
+            <div id="status-progress-bar" class="status-progress-bar"></div>
+          </div>
+          <div id="status-progress-label" class="status-progress-label hidden" aria-hidden="true">0%</div>
           <button id="retry-btn" class="retry hidden" type="button" data-i18n="retry">
             Reintentar
           </button>
