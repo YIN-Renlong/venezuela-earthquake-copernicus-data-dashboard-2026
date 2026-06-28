@@ -1001,6 +1001,8 @@ function updateImageryPanelButton() {
     "aria-label",
     compact ? t("expandImageryPanel") : t("collapseImageryPanel")
   );
+
+  window.requestAnimationFrame(fitImageryCompactText);
 }
 
 function expandImageryPanelFromAutoCompact() {
@@ -1053,28 +1055,40 @@ function getImageryCompactStatusInfo(info = state.latestSelectedProductInfo) {
   const cogs = getSortedImageryItems(info);
   const active = cogs.filter((item) => getCogLayerState(cogItemKey(item)).visible);
 
+  if (!cogs.length) {
+    return {
+      active: false,
+      available: false,
+      text: "",
+    };
+  }
+
   if (!active.length) {
     return {
       active: false,
-      text: "",
+      available: true,
+      text: t("sourceImageryAvailable"),
     };
   }
 
   if (active.length === 1) {
     return {
       active: true,
+      available: false,
       text: t("sourceImageryActive"),
     };
   }
 
   return {
     active: true,
+    available: false,
     text: `${t("sourceImageryActiveMultiple")} · ${active.length}`,
   };
 }
 
 function updateImageryCompactStatus(info = state.latestSelectedProductInfo) {
   const node = document.getElementById("source-imagery-compact-status");
+  const panel = getImageryPanelElement();
 
   if (!node) {
     return;
@@ -1084,7 +1098,110 @@ function updateImageryCompactStatus(info = state.latestSelectedProductInfo) {
 
   node.textContent = status.text;
   node.classList.toggle("active", status.active);
+  node.classList.toggle("available", status.available);
   node.classList.toggle("hidden", !status.text);
+
+  if (panel) {
+    panel.classList.toggle("has-active-imagery", status.active);
+    panel.classList.toggle("has-available-imagery", status.available);
+  }
+
+  window.requestAnimationFrame(fitImageryCompactText);
+}
+
+function fitImageryCompactText() {
+  const panel = getImageryPanelElement();
+
+  if (!panel) {
+    return;
+  }
+
+  const header = panel.querySelector(".imagery-panel-header");
+
+  panel.style.setProperty("--imagery-compact-font-scale", "1");
+
+  // When the panel is full-size, remove any compact inline sizing.
+  if (!panel.classList.contains("auto-compact")) {
+    panel.style.removeProperty("width");
+
+    if (header) {
+      header.style.removeProperty("width");
+      header.style.removeProperty("max-width");
+    }
+
+    return;
+  }
+
+  const title = panel.querySelector(".imagery-panel-header strong");
+  const status = panel.querySelector(".imagery-compact-status:not(.hidden)");
+  const button = panel.querySelector(".imagery-collapse-btn");
+  const textGroup = title?.parentElement || null;
+
+  if (!header || !title || !button || !textGroup) {
+    return;
+  }
+
+  // Clear previous measured width before measuring actual content.
+  panel.style.removeProperty("width");
+  header.style.removeProperty("width");
+  header.style.removeProperty("max-width");
+
+  const headerStyle = window.getComputedStyle(header);
+  const groupStyle = window.getComputedStyle(textGroup);
+
+  const headerGap =
+    Number.parseFloat(headerStyle.columnGap || headerStyle.gap || "10") || 10;
+
+  const groupGap =
+    Number.parseFloat(groupStyle.columnGap || groupStyle.gap || "9") || 9;
+
+  const paddingLeft = Number.parseFloat(headerStyle.paddingLeft || "0") || 0;
+  const paddingRight = Number.parseFloat(headerStyle.paddingRight || "0") || 0;
+
+  const statusVisible = Boolean(status && status.textContent.trim());
+
+  const titleWidth = title.scrollWidth;
+  const statusWidth = statusVisible ? status.scrollWidth : 0;
+
+  const textWidth =
+    titleWidth +
+    (statusVisible ? groupGap + statusWidth : 0);
+
+  const buttonWidth = button.offsetWidth || 26;
+
+  const desiredWidth = Math.ceil(
+    paddingLeft +
+    textWidth +
+    headerGap +
+    buttonWidth +
+    paddingRight +
+    2
+  );
+
+  const viewportPadding = window.matchMedia("(max-width: 820px)").matches ? 24 : 32;
+  const maxWidth = Math.max(220, window.innerWidth - viewportPadding);
+
+  let targetWidth = desiredWidth;
+  let scale = 1;
+
+  if (desiredWidth > maxWidth) {
+    const availableTextWidth = Math.max(
+      80,
+      maxWidth - paddingLeft - headerGap - buttonWidth - paddingRight - 2
+    );
+
+    scale = Math.max(0.52, Math.min(1, availableTextWidth / Math.max(1, textWidth)));
+    targetWidth = maxWidth;
+  }
+
+  panel.style.setProperty("--imagery-compact-font-scale", scale.toFixed(3));
+
+  // This is intentionally inline + important because earlier responsive CSS
+  // rules can otherwise keep the compact overlay stretched and leave empty
+  // space after the plus button.
+  panel.style.setProperty("width", `${targetWidth}px`, "important");
+  header.style.setProperty("width", `${targetWidth}px`, "important");
+  header.style.setProperty("max-width", `${targetWidth}px`, "important");
 }
 
 function getSortedImageryItems(info = state.latestSelectedProductInfo) {
@@ -1160,6 +1277,10 @@ function setupImageryComparisonPanelEvents() {
   }
 
   panel.dataset.bound = "1";
+
+  window.addEventListener("resize", () => {
+    window.requestAnimationFrame(fitImageryCompactText);
+  });
 
   const collapseButton = document.getElementById("source-imagery-collapse-btn");
 
