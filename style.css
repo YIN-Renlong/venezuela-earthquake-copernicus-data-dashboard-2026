@@ -1558,3 +1558,86 @@ button.aoi-card:hover {
   color: #ffe680;
 }
 /* Real streamed download progress styles: end */
+
+/* Basemap controls in legend and footer note styles: start */
+
+.sidebar-basemap-panel.hidden {
+  display: none !important;
+}
+
+.legend-basemap-segmented {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 7px;
+}
+
+.legend-basemap-btn {
+  min-height: 34px;
+  padding: 7px 9px;
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  background: rgba(255, 255, 255, 0.065);
+  color: var(--text);
+  cursor: pointer;
+  font-size: 0.82rem;
+  font-weight: 850;
+  line-height: 1.15;
+  text-align: center;
+}
+
+.legend-basemap-btn:hover {
+  background: rgba(255, 255, 255, 0.12);
+}
+
+.legend-basemap-btn.active {
+  border-color: transparent;
+  background: var(--yellow);
+  color: #141414;
+  box-shadow: 0 0 0 1px rgba(255, 212, 0, 0.18) inset;
+}
+
+.footer-basemap-note {
+  margin-top: 12px;
+  padding-top: 10px;
+  border-top: 1px solid rgba(255, 255, 255, 0.08);
+}
+
+.footer-basemap-note summary {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  min-height: 30px;
+  padding: 6px 10px;
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.055);
+  color: #d8dee9;
+  cursor: pointer;
+  font-size: 0.82rem;
+  font-weight: 850;
+  list-style: none;
+}
+
+.footer-basemap-note summary::-webkit-details-marker {
+  display: none;
+}
+
+.footer-basemap-note summary::before {
+  content: "ⓘ";
+  color: var(--yellow);
+  font-weight: 900;
+}
+
+.footer-basemap-note[open] summary {
+  background: rgba(255, 212, 0, 0.12);
+  border-color: rgba(255, 212, 0, 0.32);
+}
+
+.footer-basemap-note p {
+  margin: 8px 0 0 !important;
+  color: var(--muted);
+  font-size: 0.82rem;
+  line-height: 1.45;
+}
+
+/* Basemap controls in legend and footer note styles: end */

@@ -507,6 +507,7 @@ const supplementalTranslations = {
     builtUpPoints: "Puntos de edificaciones",
     transportationGrading: "Red vial y ferroviaria",
     generalInformation: "Información general",
+    basemapNoteButton: "Nota sobre el mapa base",
     productsTitle: "Productos",
     builtUpArea: "Área edificada",
     crisisPoints: "Puntos de crisis",
@@ -553,6 +554,7 @@ const supplementalTranslations = {
     builtUpPoints: "Built Up Points",
     transportationGrading: "Road and rail network",
     generalInformation: "General Information",
+    basemapNoteButton: "Basemap note",
     productsTitle: "Products",
     builtUpArea: "Built Up Area",
     crisisPoints: "Crisis Points",
@@ -599,6 +601,7 @@ const supplementalTranslations = {
     builtUpPoints: "Punti edificati",
     transportationGrading: "Rete stradale e ferroviaria",
     generalInformation: "Informazioni generali",
+    basemapNoteButton: "Nota sulla mappa base",
     productsTitle: "Prodotti",
     builtUpArea: "Area edificata",
     crisisPoints: "Punti di crisi",
@@ -645,6 +648,7 @@ const supplementalTranslations = {
     builtUpPoints: "建筑物点",
     transportationGrading: "道路与铁路网络",
     generalInformation: "一般信息",
+    basemapNoteButton: "底图说明",
     productsTitle: "产品",
     builtUpArea: "建筑物面",
     crisisPoints: "危机点",
@@ -7314,3 +7318,164 @@ function maybeShowLargeLayerDownloadNotice(kind, url) {
   showStatusProgressV4(0, "0%");
 }
 /* Real streamed download progress override: end */
+
+/* Basemap controls in map legend override: start */
+
+function renderBasemapControlsLegendSectionV7() {
+  const satelliteActive = currentBasemap === "satellite";
+  const streetActive = currentBasemap === "street";
+  const labelsDisabled = currentBasemap !== "satellite";
+  const labelsChecked = satelliteLabelsEnabled && !labelsDisabled;
+
+  return renderLegendSectionV4(
+    t("basemapTitle"),
+    `
+      <div class="legend-basemap-segmented" role="group" aria-label="${escapeHtml(t("basemapTitle"))}">
+        <button
+          class="legend-basemap-btn ${satelliteActive ? "active" : ""}"
+          type="button"
+          data-legend-basemap="satellite"
+        >${escapeHtml(t("satelliteBasemap"))}</button>
+
+        <button
+          class="legend-basemap-btn ${streetActive ? "active" : ""}"
+          type="button"
+          data-legend-basemap="street"
+        >${escapeHtml(t("streetBasemap"))}</button>
+      </div>
+
+      <label class="map-legend-row legend-toggle ${labelsDisabled ? "disabled" : ""}">
+        <input
+          class="layer-checkbox"
+          type="checkbox"
+          data-basemap-labels-toggle="labels"
+          ${labelsChecked ? "checked" : ""}
+          ${labelsDisabled ? "disabled" : ""}
+        />
+        <span class="image-swatch"></span>
+        <span>${escapeHtml(t("satelliteLabels"))}</span>
+      </label>
+    `
+  );
+}
+
+function renderBasemapLabelsLegendSectionV4() {
+  return renderBasemapControlsLegendSectionV7();
+}
+
+function setupLayerToggleEvents() {
+  const legend = document.getElementById("map-legend");
+
+  if (!legend || legend.dataset.toggleDelegatedV7 === "1") {
+    return;
+  }
+
+  legend.dataset.toggleDelegatedV7 = "1";
+
+  legend.addEventListener("click", (event) => {
+    const basemapButton = event.target.closest("[data-legend-basemap]");
+
+    if (!basemapButton) {
+      return;
+    }
+
+    const mode = basemapButton.dataset.legendBasemap || "satellite";
+    setBasemap(mode);
+
+    if (latestSelectedProductInfo && typeof renderDynamicLegend === "function") {
+      renderDynamicLegend(latestSelectedProductInfo);
+    }
+  });
+
+  legend.addEventListener("change", (event) => {
+    const labelsInput = event.target.closest("[data-basemap-labels-toggle]");
+
+    if (labelsInput) {
+      satelliteLabelsEnabled = Boolean(labelsInput.checked);
+
+      if (els.labelsToggle) {
+        els.labelsToggle.checked = satelliteLabelsEnabled;
+      }
+
+      setBasemap(currentBasemap);
+
+      if (latestSelectedProductInfo && typeof renderDynamicLegend === "function") {
+        renderDynamicLegend(latestSelectedProductInfo);
+      }
+
+      return;
+    }
+
+    const input = event.target.closest("[data-layer-toggle]");
+
+    if (!input) {
+      return;
+    }
+
+    const key = String(input.dataset.layerToggle || "").trim();
+
+    if (!key) {
+      return;
+    }
+
+    setLayerVisibilityState(key, input.checked);
+    syncLayerToggleInputs();
+    applyLayerVisibility();
+  });
+
+  syncLayerToggleInputs();
+}
+
+function renderDynamicLegend(info = latestSelectedProductInfo) {
+  const body = document.querySelector("#map-legend .map-legend-body");
+
+  if (!body) {
+    return;
+  }
+
+  const products = Array.isArray(info?.products) && info.products.length
+    ? info.products
+    : info?.product
+      ? [info.product]
+      : [];
+
+  const multiple = products.length > 1;
+
+  // Basemap controls now always appear at the top of the map legend.
+  const sections = [
+    renderBasemapControlsLegendSectionV7(),
+  ];
+
+  products.forEach((product) => {
+    const productSections = renderProductLegendSectionsV4(info, product);
+
+    if (!productSections.length) {
+      return;
+    }
+
+    if (multiple) {
+      sections.push(`
+        <div class="legend-product-group">
+          <div class="legend-product-title">${escapeHtml(getProductLabel(product))}</div>
+          ${productSections.join("")}
+        </div>
+      `);
+    } else {
+      sections.push(...productSections);
+    }
+  });
+
+  sections.push(renderAoiLegendSectionV4());
+
+  const cleanSections = sections.filter(Boolean);
+
+  if (!cleanSections.length) {
+    body.innerHTML = `<div class="map-legend-placeholder">${escapeHtml(t("noDisplayableLayers"))}</div>`;
+  } else {
+    body.innerHTML = cleanSections.join("");
+  }
+
+  syncLayerToggleInputs();
+}
+
+/* Basemap controls in map legend override: end */

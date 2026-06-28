@@ -22,10 +22,10 @@
   <link rel="preconnect" href="https://rapidmapping-viewer.s3.eu-west-1.amazonaws.com" />
 
   <link href="https://unpkg.com/maplibre-gl@4.7.1/dist/maplibre-gl.css" rel="stylesheet" />
-  <link rel="stylesheet" href="style.css?v=cache-real-download-progress-1782632166" />
+  <link rel="stylesheet" href="style.css?v=cache-basemap-in-legend-1782632925" />
 
   <script src="https://unpkg.com/maplibre-gl@4.7.1/dist/maplibre-gl.js" defer></script>
-  <script src="app.js?v=cache-real-download-progress-1782632166" defer></script>
+  <script src="app.js?v=cache-basemap-in-legend-1782632925" defer></script>
 </head>
 
 <body>
@@ -79,7 +79,7 @@
         <div id="product-list" class="product-list"></div>
       </section>
 
-      <section class="panel">
+      <section class="panel sidebar-basemap-panel hidden" aria-hidden="true">
         <h2 data-i18n="basemapTitle">Mapa base</h2>
 
         <div class="segmented" role="group" aria-label="Basemap selector">
@@ -232,6 +232,13 @@
             data-i18n="footerGithubLink"
           >visite el proyecto en GitHub</a><span data-i18n="footerPeriod">.</span>
         </p>
+
+        <details class="footer-basemap-note">
+          <summary data-i18n="basemapNoteButton">Nota sobre el mapa base</summary>
+          <p data-i18n="basemapNote">
+            Prototipo: satélite por Esri; calles claras por CARTO/OpenStreetMap. Para tráfico masivo, cambiar a un proveedor de teselas de producción.
+          </p>
+        </details>
 
         <p class="small footer-author">
           <span data-i18n="footerAuthorPrefix">Construido por</span>
