@@ -566,7 +566,7 @@ export function getCogLayerState(key) {
   if (!COG_STATE.has(key)) {
     COG_STATE.set(key, {
       visible: false,
-      opacity: 0.75,
+      opacity: 1.0,
     });
   }
 
@@ -738,8 +738,10 @@ export function setCogOpacity(key, opacity) {
     state.map.setPaintProperty(ids.layerId, "raster-opacity", cogState.opacity);
   }
 
-  document.querySelectorAll("[data-cog-opacity-value]").forEach((node) => {
-    if (String(node.dataset.cogOpacityValue || "") === String(key)) {
+  document.querySelectorAll("[data-cog-opacity-value], [data-imagery-opacity-value]").forEach((node) => {
+    const nodeKey = String(node.dataset.cogOpacityValue || node.dataset.imageryOpacityValue || "");
+
+    if (nodeKey === String(key)) {
       node.textContent = `${Math.round(cogState.opacity * 100)}%`;
     }
   });

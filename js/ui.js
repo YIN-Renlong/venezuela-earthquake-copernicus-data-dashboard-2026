@@ -363,19 +363,19 @@ export function setupLegendOverlayEvents() {
   const legend = document.getElementById("map-legend");
   const button = document.getElementById("legend-collapse-btn");
 
-  if (!legend || !button) {
-    return;
+  if (legend && button) {
+    button.addEventListener("click", () => {
+      const collapsed = legend.classList.toggle("collapsed");
+
+      button.textContent = collapsed ? "+" : "−";
+      button.setAttribute(
+        "aria-label",
+        collapsed ? t("expandLegend") : t("collapseLegend")
+      );
+    });
   }
 
-  button.addEventListener("click", () => {
-    const collapsed = legend.classList.toggle("collapsed");
-
-    button.textContent = collapsed ? "+" : "−";
-    button.setAttribute(
-      "aria-label",
-      collapsed ? t("expandLegend") : t("collapseLegend")
-    );
-  });
+  setupImageryComparisonPanelEvents();
 }
 
 export function syncLayerToggleInputs() {
@@ -967,62 +967,440 @@ function renderGroundMovementLegendSection(productKey) {
   return renderLegendSection(t("groundMovementGrading"), rows);
 }
 
-function renderSourceImageryLegendSection(info, productKey = "") {
-  const cogs = (Array.isArray(info?.cogLayers) ? info.cogLayers : [])
-    .filter((item) => !productKey || String(item.productKey) === String(productKey));
+const IMAGERY_AUTO_COMPACT_DELAY_MS = 5000;
+let imageryAutoCompactTimer = null;
 
-  if (!cogs.length) {
-    return "";
+function getImageryPanelElement() {
+  return document.getElementById("source-imagery-panel");
+}
+
+function clearImageryAutoCompactTimer() {
+  if (imageryAutoCompactTimer) {
+    window.clearTimeout(imageryAutoCompactTimer);
+    imageryAutoCompactTimer = null;
+  }
+}
+
+function updateImageryPanelButton() {
+  const panel = getImageryPanelElement();
+  const collapseButton = document.getElementById("source-imagery-collapse-btn");
+
+  if (!panel || !collapseButton) {
+    return;
   }
 
-  const rows = cogs
-    .map((item) => {
-      const key = cogItemKey(item);
-      registerCogCatalogItem(key, item);
+  // The imagery panel now has only two states:
+  // 1. full panel
+  // 2. compact transparent bar
+  //
+  // The old title-only collapsed state is intentionally no longer used.
+  const compact = panel.classList.contains("auto-compact");
 
-      const cogState = getCogLayerState(key);
-      const opacityPercent = Math.round(cogState.opacity * 100);
+  collapseButton.textContent = compact ? "+" : "−";
+  collapseButton.setAttribute(
+    "aria-label",
+    compact ? t("expandImageryPanel") : t("collapseImageryPanel")
+  );
+}
 
-      return `
-        <div class="cog-legend-item">
-          <label class="map-legend-row legend-toggle cog-toggle-row">
+function expandImageryPanelFromAutoCompact() {
+  const panel = getImageryPanelElement();
+
+  if (!panel) {
+    return;
+  }
+
+  panel.classList.remove("collapsed");
+
+  if (panel.classList.contains("auto-compact")) {
+    panel.classList.remove("auto-compact");
+    updateImageryPanelButton();
+  }
+}
+
+function compactImageryPanelNow() {
+  const panel = getImageryPanelElement();
+
+  if (!panel || panel.classList.contains("hidden")) {
+    return;
+  }
+
+  if (panel.matches(":hover") || panel.contains(document.activeElement)) {
+    scheduleImageryAutoCompact();
+    return;
+  }
+
+  panel.classList.remove("collapsed");
+  panel.classList.add("auto-compact");
+  updateImageryPanelButton();
+}
+
+function scheduleImageryAutoCompact(delay = IMAGERY_AUTO_COMPACT_DELAY_MS) {
+  const panel = getImageryPanelElement();
+
+  clearImageryAutoCompactTimer();
+
+  if (!panel || panel.classList.contains("hidden")) {
+    return;
+  }
+
+  imageryAutoCompactTimer = window.setTimeout(() => {
+    compactImageryPanelNow();
+  }, delay);
+}
+
+function getImageryCompactStatusInfo(info = state.latestSelectedProductInfo) {
+  const cogs = getSortedImageryItems(info);
+  const active = cogs.filter((item) => getCogLayerState(cogItemKey(item)).visible);
+
+  if (!active.length) {
+    return {
+      active: false,
+      text: "",
+    };
+  }
+
+  if (active.length === 1) {
+    return {
+      active: true,
+      text: t("sourceImageryActive"),
+    };
+  }
+
+  return {
+    active: true,
+    text: `${t("sourceImageryActiveMultiple")} · ${active.length}`,
+  };
+}
+
+function updateImageryCompactStatus(info = state.latestSelectedProductInfo) {
+  const node = document.getElementById("source-imagery-compact-status");
+
+  if (!node) {
+    return;
+  }
+
+  const status = getImageryCompactStatusInfo(info);
+
+  node.textContent = status.text;
+  node.classList.toggle("active", status.active);
+  node.classList.toggle("hidden", !status.text);
+}
+
+function getSortedImageryItems(info = state.latestSelectedProductInfo) {
+  return (Array.isArray(info?.cogLayers) ? info.cogLayers : [])
+    .slice()
+    .sort((a, b) => {
+      const aTime = new Date(a?.acquisitionTime || "").getTime();
+      const bTime = new Date(b?.acquisitionTime || "").getTime();
+
+      const aValue = Number.isFinite(aTime) ? aTime : Number.MAX_SAFE_INTEGER;
+      const bValue = Number.isFinite(bTime) ? bTime : Number.MAX_SAFE_INTEGER;
+
+      if (aValue !== bValue) {
+        return aValue - bValue;
+      }
+
+      return String(a?.label || "").localeCompare(String(b?.label || ""));
+    });
+}
+
+function getImageryPositionLabel(index, total) {
+  if (total <= 1) {
+    return t("sourceImageryAcquisition");
+  }
+
+  if (index === 0) {
+    return t("earlierAcquisition");
+  }
+
+  if (index === total - 1) {
+    return t("latestAcquisition");
+  }
+
+  return `${t("sourceImageryAcquisition")} ${index + 1}`;
+}
+
+function turnOffOtherImageryLayers(keepKey, info = state.latestSelectedProductInfo) {
+  getSortedImageryItems(info).forEach((item) => {
+    const key = cogItemKey(item);
+
+    if (key === keepKey) {
+      return;
+    }
+
+    const cogState = getCogLayerState(key);
+    cogState.visible = false;
+    removeCogRasterLayer(key);
+  });
+}
+
+function enforceSingleImagerySelection(info = state.latestSelectedProductInfo) {
+  if (state.imageryOverlayMode) {
+    return;
+  }
+
+  const visible = getSortedImageryItems(info)
+    .map((item) => ({ item, key: cogItemKey(item), cogState: getCogLayerState(cogItemKey(item)) }))
+    .filter((entry) => entry.cogState.visible);
+
+  if (visible.length <= 1) {
+    return;
+  }
+
+  const keepKey = visible[visible.length - 1].key;
+  turnOffOtherImageryLayers(keepKey, info);
+}
+
+function setupImageryComparisonPanelEvents() {
+  const panel = document.getElementById("source-imagery-panel");
+
+  if (!panel || panel.dataset.bound === "1") {
+    return;
+  }
+
+  panel.dataset.bound = "1";
+
+  const collapseButton = document.getElementById("source-imagery-collapse-btn");
+
+  if (collapseButton) {
+    collapseButton.addEventListener("click", () => {
+      const wasAutoCompact = panel.classList.contains("auto-compact");
+
+      clearImageryAutoCompactTimer();
+      panel.classList.remove("collapsed");
+
+      if (wasAutoCompact) {
+        panel.classList.remove("auto-compact");
+        updateImageryPanelButton();
+        scheduleImageryAutoCompact();
+        return;
+      }
+
+      // Manual hide now uses the same compact transparent bar as the
+      // 5-second auto-compact behavior. The old title-only collapsed
+      // state is no longer used.
+      panel.classList.add("auto-compact");
+      updateImageryPanelButton();
+    });
+  }
+
+  panel.addEventListener("mouseenter", () => {
+    clearImageryAutoCompactTimer();
+    expandImageryPanelFromAutoCompact();
+  });
+
+  panel.addEventListener("mouseleave", () => {
+    scheduleImageryAutoCompact();
+  });
+
+  panel.addEventListener("focusin", () => {
+    clearImageryAutoCompactTimer();
+    expandImageryPanelFromAutoCompact();
+  });
+
+  panel.addEventListener("focusout", () => {
+    window.setTimeout(() => {
+      if (!panel.contains(document.activeElement)) {
+        scheduleImageryAutoCompact();
+      }
+    }, 0);
+  });
+
+  panel.addEventListener("click", (event) => {
+    if (panel.classList.contains("auto-compact") && !event.target.closest("button")) {
+      expandImageryPanelFromAutoCompact();
+      scheduleImageryAutoCompact();
+      return;
+    }
+
+    if (
+      event.target.closest("a") ||
+      event.target.closest("button") ||
+      event.target.closest("input") ||
+      event.target.closest("label")
+    ) {
+      return;
+    }
+
+    const item = event.target.closest(".imagery-item");
+
+    if (!item || !panel.contains(item)) {
+      return;
+    }
+
+    const checkbox = item.querySelector("[data-imagery-toggle]");
+
+    if (!checkbox) {
+      return;
+    }
+
+    checkbox.checked = !checkbox.checked;
+    checkbox.dispatchEvent(new Event("change", { bubbles: true }));
+  });
+
+  panel.addEventListener("input", (event) => {
+    const opacityInput = event.target.closest("[data-imagery-opacity]");
+
+    if (!opacityInput) {
+      return;
+    }
+
+    const key = String(opacityInput.dataset.imageryOpacity || "").trim();
+    const opacity = Number(opacityInput.value) / 100;
+
+    setCogOpacity(key, opacity);
+  });
+
+  panel.addEventListener("change", async (event) => {
+    const overlayInput = event.target.closest("[data-imagery-overlay-mode]");
+
+    if (overlayInput) {
+      state.imageryOverlayMode = Boolean(overlayInput.checked);
+
+      if (!state.imageryOverlayMode) {
+        enforceSingleImagerySelection(state.latestSelectedProductInfo);
+      }
+
+      renderImageryComparisonPanel(state.latestSelectedProductInfo);
+      return;
+    }
+
+    const imageryInput = event.target.closest("[data-imagery-toggle]");
+
+    if (!imageryInput) {
+      return;
+    }
+
+    const key = String(imageryInput.dataset.imageryToggle || "").trim();
+    const item = getCogCatalogItem(key);
+    const cogState = getCogLayerState(key);
+    const nextVisible = Boolean(imageryInput.checked);
+
+    if (nextVisible && !state.imageryOverlayMode) {
+      turnOffOtherImageryLayers(key, state.latestSelectedProductInfo);
+    }
+
+    cogState.visible = nextVisible;
+
+    renderImageryComparisonPanel(state.latestSelectedProductInfo);
+
+    if (nextVisible && item) {
+      await addCogRasterLayer(item);
+    } else {
+      removeCogRasterLayer(key);
+    }
+  });
+}
+
+export function renderImageryComparisonPanel(info = state.latestSelectedProductInfo) {
+  const panel = document.getElementById("source-imagery-panel");
+  const body = document.getElementById("source-imagery-body");
+  const collapseButton = document.getElementById("source-imagery-collapse-btn");
+
+  if (!panel || !body) {
+    return;
+  }
+
+  const cogs = getSortedImageryItems(info);
+
+  if (!cogs.length) {
+    clearImageryAutoCompactTimer();
+    panel.classList.add("hidden");
+    panel.classList.remove("auto-compact");
+    panel.classList.remove("collapsed");
+    body.innerHTML = "";
+    updateImageryCompactStatus(info);
+    updateImageryPanelButton();
+    return;
+  }
+
+  panel.classList.remove("hidden");
+  panel.classList.remove("collapsed");
+
+  updateImageryCompactStatus(info);
+  updateImageryPanelButton();
+
+  const productKeys = new Set(cogs.map((item) => String(item.productKey || "")));
+  const showProductBadge = productKeys.size > 1;
+
+  const overlayMode = cogs.length > 1
+    ? `
+      <label class="imagery-overlay-mode">
+        <input
+          type="checkbox"
+          data-imagery-overlay-mode="1"
+          ${state.imageryOverlayMode ? "checked" : ""}
+        />
+        <span>${escapeHtml(t("overlayMultipleImages"))}</span>
+      </label>
+    `
+    : "";
+
+  const rows = cogs.map((item, index) => {
+    const key = cogItemKey(item);
+    registerCogCatalogItem(key, item);
+
+    const cogState = getCogLayerState(key);
+    const opacityPercent = Math.round(cogState.opacity * 100);
+    const positionLabel = getImageryPositionLabel(index, cogs.length);
+    const productBadge = showProductBadge && item.productLabel
+      ? `<span class="imagery-product-badge">${escapeHtml(item.productLabel)}</span>`
+      : "";
+
+    return `
+      <div class="imagery-item ${cogState.visible ? "active-imagery-item" : ""}">
+        <div class="imagery-row">
+          <label class="imagery-select-label">
             <input
-              class="layer-checkbox"
+              class="imagery-checkbox"
               type="checkbox"
-              data-cog-toggle="${escapeHtml(key)}"
+              data-imagery-toggle="${escapeHtml(key)}"
               ${cogState.visible ? "checked" : ""}
             />
             <span class="image-swatch"></span>
-            <span>
-              ${escapeHtml(item.label)}
-              <a
-                class="image-legend-link cog-file-link"
-                href="${escapeHtml(item.url)}"
-                target="_blank"
-                rel="noopener noreferrer"
-                title="Open TIFF"
-              >TIFF</a>
+            <span class="imagery-text">
+              <span class="imagery-title-line">
+                <span class="imagery-time-badge">${escapeHtml(positionLabel)}</span>
+                ${productBadge}
+                <span>${escapeHtml(item.label)}</span>
+              </span>
             </span>
           </label>
 
-          <label class="cog-opacity-row ${cogState.visible ? "" : "hidden"}">
-            <span>Opacity</span>
-            <input
-              type="range"
-              min="0"
-              max="100"
-              step="5"
-              value="${opacityPercent}"
-              data-cog-opacity="${escapeHtml(key)}"
-            />
-            <strong data-cog-opacity-value="${escapeHtml(key)}">${opacityPercent}%</strong>
-          </label>
+          <a
+            class="imagery-tiff-link"
+            href="${escapeHtml(item.url)}"
+            target="_blank"
+            rel="noopener noreferrer"
+            title="Open TIFF"
+          >TIFF</a>
         </div>
-      `;
-    })
-    .join("");
 
-  return renderLegendSection(t("sourceImagery"), rows);
+        <label class="imagery-opacity-row ${cogState.visible ? "" : "hidden"}">
+          <span>Opacity</span>
+          <input
+            type="range"
+            min="0"
+            max="100"
+            step="5"
+            value="${opacityPercent}"
+            data-imagery-opacity="${escapeHtml(key)}"
+          />
+          <strong data-imagery-opacity-value="${escapeHtml(key)}">${opacityPercent}%</strong>
+        </label>
+      </div>
+    `;
+  }).join("");
+
+  body.innerHTML = `
+    ${overlayMode}
+    <div class="imagery-list">
+      ${rows}
+    </div>
+  `;
+
+  scheduleImageryAutoCompact();
 }
 
 function renderBasemapControlsLegendSection() {
@@ -1087,7 +1465,6 @@ function renderProductLegendSections(info, product) {
     renderFacilitiesLegendSection(productKey),
     renderTransportationAreaLegendSection(productKey),
     renderGroundMovementLegendSection(productKey),
-    renderSourceImageryLegendSection(info, productKey),
   ].filter(Boolean);
 }
 
@@ -1139,6 +1516,7 @@ export function renderDynamicLegend(info = state.latestSelectedProductInfo) {
     body.innerHTML = cleanSections.join("");
   }
 
+  renderImageryComparisonPanel(info);
   syncLayerToggleInputs();
 
   window.setTimeout(() => {

@@ -277,6 +277,28 @@
 
       <div id="map" aria-label="Map of Venezuela earthquake satellite assessment layers"></div>
 
+      <div
+        id="source-imagery-panel"
+        class="imagery-panel hidden"
+        aria-label="Copernicus source imagery comparison"
+      >
+        <div class="imagery-panel-header">
+          <div>
+            <strong data-i18n="sourceImagery">Imagen fuente de Copernicus</strong>
+            <small id="source-imagery-compact-status" class="imagery-compact-status">—</small>
+          </div>
+
+          <button
+            id="source-imagery-collapse-btn"
+            class="imagery-collapse-btn"
+            type="button"
+            aria-label="Collapse imagery panel"
+          >−</button>
+        </div>
+
+        <div id="source-imagery-body" class="imagery-panel-body"></div>
+      </div>
+
       <div id="map-legend" class="map-legend" aria-label="Map legend">
         <div class="map-legend-header">
           <strong data-i18n="legendTitle">Leyenda</strong>

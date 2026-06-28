@@ -6,6 +6,7 @@ export const state = {
   currentLang: "es",
   currentBasemap: "satellite",
   satelliteLabelsEnabled: true,
+  imageryOverlayMode: false,
 
   map: null,
   mapReady: false,
