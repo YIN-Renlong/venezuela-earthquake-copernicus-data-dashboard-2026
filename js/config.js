@@ -6,7 +6,7 @@ export const COPERNICUS_API_URL =
 export const COPERNICUS_CACHE_TTL_MS = 30 * 60 * 1000;
 export const COPERNICUS_MANIFEST_CACHE_KEY = "emsr884-manifest-cache-v4-inline-products";
 
-export const DEFAULT_AOI_NUMBER = 2;
+export const DEFAULT_AOI_NUMBER = 12;
 
 export const CARACAS = {
   id: "AOI02",
