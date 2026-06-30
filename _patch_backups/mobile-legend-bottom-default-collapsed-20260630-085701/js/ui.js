@@ -359,70 +359,20 @@ export function setupLayerToggleEvents() {
   syncLayerToggleInputs();
 }
 
-function syncLegendCollapseButtonState(legend, button) {
-  if (!legend || !button) {
-    return;
-  }
-
-  const collapsed = legend.classList.contains("collapsed");
-
-  button.textContent = collapsed ? "+" : "−";
-  button.setAttribute(
-    "aria-label",
-    collapsed ? t("expandLegend") : t("collapseLegend")
-  );
-}
-
-function installResponsiveLegendDefault(legend, button) {
-  if (!legend || !button || legend.dataset.responsiveDefaultBound === "1") {
-    return;
-  }
-
-  legend.dataset.responsiveDefaultBound = "1";
-
-  const query = window.matchMedia("(max-width: 820px)");
-
-  const applyDefault = () => {
-    // Respect manual user choice after the user clicks the legend button.
-    if (legend.dataset.userToggledLegend === "1") {
-      syncLegendCollapseButtonState(legend, button);
-      return;
-    }
-
-    // Mobile starts collapsed by default to protect map viewing space.
-    // Desktop stays expanded by default.
-    if (query.matches) {
-      legend.classList.add("collapsed");
-    } else {
-      legend.classList.remove("collapsed");
-    }
-
-    syncLegendCollapseButtonState(legend, button);
-  };
-
-  applyDefault();
-
-  if (typeof query.addEventListener === "function") {
-    query.addEventListener("change", applyDefault);
-  } else if (typeof query.addListener === "function") {
-    query.addListener(applyDefault);
-  }
-}
-
 export function setupLegendOverlayEvents() {
   const legend = document.getElementById("map-legend");
   const button = document.getElementById("legend-collapse-btn");
 
   if (legend && button) {
-    installResponsiveLegendDefault(legend, button);
-
     button.addEventListener("click", () => {
-      legend.dataset.userToggledLegend = "1";
-      legend.classList.toggle("collapsed");
-      syncLegendCollapseButtonState(legend, button);
-    });
+      const collapsed = legend.classList.toggle("collapsed");
 
-    syncLegendCollapseButtonState(legend, button);
+      button.textContent = collapsed ? "+" : "−";
+      button.setAttribute(
+        "aria-label",
+        collapsed ? t("expandLegend") : t("collapseLegend")
+      );
+    });
   }
 
   setupImageryComparisonPanelEvents();
