@@ -2290,3 +2290,122 @@ h1 {
   }
 }
 /* Final mobile legend bottom default-collapsed style: end */
+
+
+/* Comparison layers / Sentinel-1 overlay: start */
+.imagery-panel-section {
+  display: grid;
+  gap: 10px;
+  padding-top: 12px;
+  border-top: 1px solid rgba(140, 199, 255, 0.14);
+}
+
+.imagery-panel-section:first-child {
+  padding-top: 0;
+  border-top: 0;
+}
+
+.imagery-section-title {
+  color: #f4f7fb;
+  font-size: 0.78rem;
+  font-weight: 950;
+  letter-spacing: 0.045em;
+  line-height: 1.2;
+  text-transform: uppercase;
+}
+
+.sentinel-comparison-section {
+  border-color: rgba(255, 105, 180, 0.2);
+}
+
+.sentinel-toggle-list {
+  display: grid;
+  gap: 8px;
+}
+
+.sentinel-toggle-row {
+  display: grid;
+  grid-template-columns: 18px 34px minmax(0, 1fr);
+  gap: 9px;
+  align-items: center;
+  min-height: 32px;
+  padding: 8px 9px;
+  border: 1px solid rgba(255, 105, 180, 0.14);
+  border-radius: 12px;
+  background: rgba(255, 105, 180, 0.045);
+  color: #d8dee9;
+  font-size: 0.8rem;
+  font-weight: 820;
+  line-height: 1.25;
+  cursor: pointer;
+  user-select: none;
+}
+
+.sentinel-toggle-row:hover {
+  border-color: rgba(255, 105, 180, 0.28);
+  background: rgba(255, 105, 180, 0.075);
+}
+
+.sentinel-area-swatch {
+  width: 30px;
+  height: 18px;
+  border: 2px dashed rgba(165, 243, 252, 0.98);
+  border-radius: 4px;
+  background: rgba(56, 189, 248, 0.11);
+  box-shadow: 0 0 12px rgba(56, 189, 248, 0.12);
+}
+
+.sentinel-damage-swatch {
+  width: 30px;
+  height: 18px;
+  border: 1px solid rgba(255, 255, 255, 0.26);
+  border-radius: 4px;
+  background:
+    linear-gradient(90deg, #ffb3d9 0%, #ff6aa2 38%, #e11d5f 68%, #6b0035 100%);
+  box-shadow: 0 0 12px rgba(225, 29, 95, 0.2);
+}
+
+.sentinel-opacity-row {
+  display: grid;
+  grid-template-columns: auto minmax(90px, 1fr) 42px;
+  gap: 8px;
+  align-items: center;
+  padding: 2px 0 3px 61px;
+  color: var(--muted);
+  font-size: 0.74rem;
+  line-height: 1.2;
+}
+
+.sentinel-opacity-row input[type="range"] {
+  width: 100%;
+  accent-color: #ff6aa2;
+}
+
+.sentinel-opacity-row strong {
+  color: #d8dee9;
+  font-size: 0.74rem;
+  text-align: right;
+}
+
+.sentinel-note {
+  margin: 0;
+  padding: 9px 10px;
+  border: 1px solid rgba(255, 105, 180, 0.13);
+  border-radius: 12px;
+  background: rgba(255, 105, 180, 0.045);
+  color: rgba(216, 222, 233, 0.78);
+  font-size: 0.74rem;
+  line-height: 1.42;
+}
+
+@media (max-width: 820px) {
+  .sentinel-opacity-row {
+    grid-template-columns: 1fr;
+    padding-left: 61px;
+  }
+
+  .sentinel-opacity-row strong {
+    text-align: left;
+  }
+}
+/* Comparison layers / Sentinel-1 overlay: end */

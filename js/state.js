@@ -8,6 +8,15 @@ export const state = {
   satelliteLabelsEnabled: true,
   imageryOverlayMode: false,
 
+  sentinel1: {
+    damagedVisible: false,
+    analyzedVisible: false,
+    opacity: 0.72,
+    loaded: false,
+    analyzedLoaded: false,
+    damagedLoaded: false,
+  },
+
   map: null,
   mapReady: false,
   isLoading: false,

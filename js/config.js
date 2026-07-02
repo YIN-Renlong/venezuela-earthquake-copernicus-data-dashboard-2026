@@ -126,6 +126,31 @@ export const COG_RENDERER_SCRIPT_URLS = {
   proj4: "https://cdn.jsdelivr.net/npm/proj4@2/dist/proj4.js",
 };
 
+export const PMTILES_SCRIPT_URL =
+  "https://cdn.jsdelivr.net/npm/pmtiles@3/dist/pmtiles.js";
+
+export const SENTINEL1_CONFIG = {
+  analyzedSourceId: "nasa-sentinel1-analyzed-area",
+  damagedSourceId: "nasa-sentinel1-damaged-structures",
+
+  analyzedGeoJsonUrl: "./data/sentinel1_emsr884_analyzed_area.geojson",
+  damagedPmtilesUrl: "./data/sentinel1_emsr884_damaged_structures.pmtiles",
+
+  damagedSourceLayer: "s1_damaged_structures",
+
+  attribution:
+    "Experimental Sentinel-1 damage analysis by Corey Scher and Jamon Van Den Hoek, Oregon State University; NASA Disasters / Earthdata; Overture Maps.",
+
+  layerIds: {
+    analyzedFill: "sentinel1-analyzed-area-fill",
+    analyzedOutline: "sentinel1-analyzed-area-outline",
+    damagedFill: "sentinel1-damaged-structures-fill",
+    damagedOutline: "sentinel1-damaged-structures-outline",
+  },
+};
+
+export const COMPARISON_LAYER_IDS = Object.values(SENTINEL1_CONFIG.layerIds);
+
 export const translations = {
   es: {
     eyebrow: "Panel satelital público",
@@ -395,6 +420,20 @@ export const supplementalTranslations = {
     transportationArea: "Área de transporte",
     airfieldAndHeliportDamaged: "Aeródromo y helipuerto, dañado",
     sourceImagery: "Imagen fuente de Copernicus",
+    comparisonLayers: "Capas de comparación",
+    copernicusSourceImagery: "Imagen fuente de Copernicus",
+    noCopernicusSourceImagery: "No hay imagen fuente de Copernicus para el producto seleccionado.",
+    sentinel1RadarAnalysis: "Análisis experimental Sentinel-1",
+    sentinel1LikelyDamagedStructures: "Estructuras probablemente dañadas",
+    sentinel1AnalyzedArea: "Área analizada / cobertura Sentinel-1",
+    sentinel1Opacity: "Opacidad Sentinel-1",
+    sentinel1Note: "Capa experimental no validada en campo. Indica cambios radar abruptos compatibles con daño; no es un censo confirmado edificio por edificio. Fuera del área analizada significa no evaluado por este producto.",
+    sentinel1LoadingTitle: "Activando análisis Sentinel-1",
+    sentinel1LoadingText: "Preparando la capa experimental de probabilidad de daño basada en radar.",
+    sentinel1LoadedTitle: "Capa Sentinel-1 activada",
+    sentinel1LoadedText: "El análisis experimental Sentinel-1 está disponible como superposición de comparación.",
+    sentinel1ErrorTitle: "No se pudo activar Sentinel-1",
+    sentinel1ErrorText: "No se pudo cargar la capa Sentinel-1. Verifique que los archivos data/sentinel1_emsr884_analyzed_area.geojson y data/sentinel1_emsr884_damaged_structures.pmtiles existan.",
     sourceImageryCompareSubtitle: "Comparar adquisiciones oficiales",
     sourceImagerySingleSubtitle: "Imagen oficial disponible",
     overlayMultipleImages: "Superponer múltiples imágenes",
@@ -459,6 +498,20 @@ export const supplementalTranslations = {
     transportationArea: "Transportation Area",
     airfieldAndHeliportDamaged: "Airfield and Heliport, Damaged",
     sourceImagery: "Copernicus source imagery",
+    comparisonLayers: "Comparison layers",
+    copernicusSourceImagery: "Copernicus source imagery",
+    noCopernicusSourceImagery: "No Copernicus source image is available for the selected product.",
+    sentinel1RadarAnalysis: "Experimental Sentinel-1 radar analysis",
+    sentinel1LikelyDamagedStructures: "Likely damaged structures",
+    sentinel1AnalyzedArea: "Analyzed area / Sentinel-1 coverage",
+    sentinel1Opacity: "Sentinel-1 opacity",
+    sentinel1Note: "Experimental layer, not field validated. It indicates abrupt radar change consistent with damage; it is not a confirmed building-by-building census. Outside the analyzed area means not assessed by this product.",
+    sentinel1LoadingTitle: "Enabling Sentinel-1 analysis",
+    sentinel1LoadingText: "Preparing the experimental radar-based damage-likelihood layer.",
+    sentinel1LoadedTitle: "Sentinel-1 layer enabled",
+    sentinel1LoadedText: "The experimental Sentinel-1 analysis is available as a comparison overlay.",
+    sentinel1ErrorTitle: "Could not enable Sentinel-1",
+    sentinel1ErrorText: "Could not load the Sentinel-1 layer. Check that data/sentinel1_emsr884_analyzed_area.geojson and data/sentinel1_emsr884_damaged_structures.pmtiles exist.",
     sourceImageryCompareSubtitle: "Compare official acquisition dates",
     sourceImagerySingleSubtitle: "Official source image available",
     overlayMultipleImages: "Overlay multiple images",
@@ -523,6 +576,20 @@ export const supplementalTranslations = {
     transportationArea: "Area di trasporto",
     airfieldAndHeliportDamaged: "Aeroporto ed eliporto, danneggiato",
     sourceImagery: "Immagine sorgente Copernicus",
+    comparisonLayers: "Layer di confronto",
+    copernicusSourceImagery: "Immagine sorgente Copernicus",
+    noCopernicusSourceImagery: "Nessuna immagine sorgente Copernicus è disponibile per il prodotto selezionato.",
+    sentinel1RadarAnalysis: "Analisi radar sperimentale Sentinel-1",
+    sentinel1LikelyDamagedStructures: "Strutture probabilmente danneggiate",
+    sentinel1AnalyzedArea: "Area analizzata / copertura Sentinel-1",
+    sentinel1Opacity: "Opacità Sentinel-1",
+    sentinel1Note: "Layer sperimentale non validato sul campo. Indica cambiamenti radar bruschi compatibili con danni; non è un censimento confermato edificio per edificio. Fuori dall'area analizzata significa non valutato da questo prodotto.",
+    sentinel1LoadingTitle: "Attivazione analisi Sentinel-1",
+    sentinel1LoadingText: "Preparazione del layer sperimentale di probabilità di danno basato su radar.",
+    sentinel1LoadedTitle: "Layer Sentinel-1 attivato",
+    sentinel1LoadedText: "L'analisi sperimentale Sentinel-1 è disponibile come overlay di confronto.",
+    sentinel1ErrorTitle: "Impossibile attivare Sentinel-1",
+    sentinel1ErrorText: "Impossibile caricare il layer Sentinel-1. Verifica che data/sentinel1_emsr884_analyzed_area.geojson e data/sentinel1_emsr884_damaged_structures.pmtiles esistano.",
     sourceImageryCompareSubtitle: "Confronta le acquisizioni ufficiali",
     sourceImagerySingleSubtitle: "Immagine ufficiale disponibile",
     overlayMultipleImages: "Sovrapponi più immagini",
@@ -587,6 +654,20 @@ export const supplementalTranslations = {
     transportationArea: "交通设施面",
     airfieldAndHeliportDamaged: "机场与直升机场，受损",
     sourceImagery: "Copernicus 源影像",
+    comparisonLayers: "对比图层",
+    copernicusSourceImagery: "Copernicus 源影像",
+    noCopernicusSourceImagery: "所选产品没有可用的 Copernicus 源影像。",
+    sentinel1RadarAnalysis: "实验性 Sentinel-1 雷达分析",
+    sentinel1LikelyDamagedStructures: "可能受损建筑",
+    sentinel1AnalyzedArea: "已分析区域 / Sentinel-1 覆盖范围",
+    sentinel1Opacity: "Sentinel-1 透明度",
+    sentinel1Note: "该图层为实验性结果，未经实地验证。它表示与损毁相一致的雷达突变信号，并非逐栋建筑的确认损毁清单。已分析区域之外表示该产品未评估。",
+    sentinel1LoadingTitle: "正在启用 Sentinel-1 分析",
+    sentinel1LoadingText: "正在准备基于雷达的实验性损毁可能性图层。",
+    sentinel1LoadedTitle: "Sentinel-1 图层已启用",
+    sentinel1LoadedText: "实验性 Sentinel-1 分析已作为对比叠加图层启用。",
+    sentinel1ErrorTitle: "无法启用 Sentinel-1",
+    sentinel1ErrorText: "无法加载 Sentinel-1 图层。请确认 data/sentinel1_emsr884_analyzed_area.geojson 和 data/sentinel1_emsr884_damaged_structures.pmtiles 存在。",
     sourceImageryCompareSubtitle: "比较官方影像获取时间",
     sourceImagerySingleSubtitle: "官方源影像可用",
     overlayMultipleImages: "叠加多幅影像",

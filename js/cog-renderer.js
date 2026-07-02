@@ -3,6 +3,7 @@
 import {
   BASE_LAYER_IDS,
   COG_RENDERER_SCRIPT_URLS,
+  COMPARISON_LAYER_IDS,
   DATA_LAYER_IDS,
 } from "./config.js";
 
@@ -600,6 +601,7 @@ function findFirstOverlayLayerBeforeId() {
   }
 
   const overlayIds = new Set([
+    ...COMPARISON_LAYER_IDS,
     ...Array.from(state.dynamicDataLayerIds || []),
     ...DATA_LAYER_IDS,
   ]);

@@ -3,3 +3,5 @@ _local-backups/
 *.log
 *.basemap-backup-original
 set-street-basemap.py
+_patch_backups/
+source_data/

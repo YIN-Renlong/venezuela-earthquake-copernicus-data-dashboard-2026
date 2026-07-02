@@ -42,6 +42,11 @@ import {
 } from "./map.js";
 
 import {
+  ensureSentinel1ComparisonLayers,
+  updateSentinel1LayerVisibility,
+} from "./sentinel1.js";
+
+import {
   forceRefreshCopernicusData,
   isJsonDocumentMemoryCached,
   isPotentiallyLargeCopernicusLayer,
@@ -1103,17 +1108,14 @@ function scheduleImageryAutoCompact(delay = IMAGERY_AUTO_COMPACT_DELAY_MS) {
 
 function getImageryCompactStatusInfo(info = state.latestSelectedProductInfo) {
   const cogs = getSortedImageryItems(info);
-  const active = cogs.filter((item) => getCogLayerState(cogItemKey(item)).visible);
+  const activeCogs = cogs.filter((item) => getCogLayerState(cogItemKey(item)).visible);
+  const sentinelActive = Boolean(
+    state.sentinel1?.damagedVisible || state.sentinel1?.analyzedVisible
+  );
 
-  if (!cogs.length) {
-    return {
-      active: false,
-      available: false,
-      text: "",
-    };
-  }
+  const activeCount = activeCogs.length + (sentinelActive ? 1 : 0);
 
-  if (!active.length) {
+  if (!activeCount) {
     return {
       active: false,
       available: true,
@@ -1121,18 +1123,12 @@ function getImageryCompactStatusInfo(info = state.latestSelectedProductInfo) {
     };
   }
 
-  if (active.length === 1) {
-    return {
-      active: true,
-      available: false,
-      text: t("sourceImageryActive"),
-    };
-  }
-
   return {
     active: true,
     available: false,
-    text: `${t("sourceImageryActiveMultiple")} · ${active.length}`,
+    text: activeCount === 1
+      ? t("sourceImageryActive")
+      : `${t("sourceImageryActive")} · ${activeCount}`,
   };
 }
 
@@ -1411,15 +1407,30 @@ function setupImageryComparisonPanelEvents() {
   });
 
   panel.addEventListener("input", (event) => {
-    const opacityInput = event.target.closest("[data-imagery-opacity]");
+    const sentinelOpacityInput = event.target.closest("[data-sentinel1-opacity]");
 
-    if (!opacityInput) {
+    if (sentinelOpacityInput) {
+      const opacity = Math.max(0, Math.min(1, Number(sentinelOpacityInput.value) / 100));
+      state.sentinel1.opacity = opacity;
+
+      document.querySelectorAll("[data-sentinel1-opacity-value]").forEach((node) => {
+        node.textContent = `${Math.round(opacity * 100)}%`;
+      });
+
+      updateSentinel1LayerVisibility();
+      updateImageryCompactStatus(state.latestSelectedProductInfo);
       return;
     }
 
+    const opacityInput = event.target.closest("[data-imagery-opacity]");
+  
+    if (!opacityInput) {
+      return;
+    }
+  
     const key = String(opacityInput.dataset.imageryOpacity || "").trim();
     const opacity = Number(opacityInput.value) / 100;
-
+  
     setCogOpacity(key, opacity);
   });
 
@@ -1434,6 +1445,32 @@ function setupImageryComparisonPanelEvents() {
       }
 
       renderImageryComparisonPanel(state.latestSelectedProductInfo);
+      return;
+    }
+
+    const sentinelInput = event.target.closest("[data-sentinel1-toggle]");
+
+    if (sentinelInput) {
+      const layer = String(sentinelInput.dataset.sentinel1Toggle || "").trim();
+      const checked = Boolean(sentinelInput.checked);
+
+      if (layer === "damaged") {
+        state.sentinel1.damagedVisible = checked;
+
+        // When likely damaged structures are enabled, automatically show
+        // the analyzed-area boundary so empty areas are not misread as
+        // "no damage".
+        if (checked) {
+          state.sentinel1.analyzedVisible = true;
+        }
+      }
+
+      if (layer === "analyzed") {
+        state.sentinel1.analyzedVisible = checked;
+      }
+
+      renderImageryComparisonPanel(state.latestSelectedProductInfo);
+      await syncSentinel1ComparisonLayerFromState(true);
       return;
     }
 
@@ -1464,36 +1501,114 @@ function setupImageryComparisonPanelEvents() {
   });
 }
 
-export function renderImageryComparisonPanel(info = state.latestSelectedProductInfo) {
-  const panel = document.getElementById("source-imagery-panel");
-  const body = document.getElementById("source-imagery-body");
-  const collapseButton = document.getElementById("source-imagery-collapse-btn");
+async function syncSentinel1ComparisonLayerFromState(showMessages = false) {
+  const shouldBeVisible = Boolean(
+    state.sentinel1?.damagedVisible || state.sentinel1?.analyzedVisible
+  );
 
-  if (!panel || !body) {
+  if (!shouldBeVisible) {
+    updateSentinel1LayerVisibility();
+    updateImageryCompactStatus(state.latestSelectedProductInfo);
     return;
   }
 
-  const cogs = getSortedImageryItems(info);
-
-  if (!cogs.length) {
-    clearImageryAutoCompactTimer();
-    panel.classList.add("hidden");
-    panel.classList.remove("auto-compact");
-    panel.classList.remove("collapsed");
-    body.innerHTML = "";
-    updateImageryCompactStatus(info);
-    updateImageryPanelButton();
-    return;
+  if (showMessages) {
+    setStatus("loading", t("sentinel1LoadingTitle"), t("sentinel1LoadingText"), false);
   }
 
-  panel.classList.remove("hidden");
-  panel.classList.remove("collapsed");
+  try {
+    await ensureSentinel1ComparisonLayers();
+    updateSentinel1LayerVisibility();
+    updateImageryCompactStatus(state.latestSelectedProductInfo);
 
-  updateImageryCompactStatus(info);
-  updateImageryPanelButton();
+    if (showMessages) {
+      setStatus("success", t("sentinel1LoadedTitle"), t("sentinel1LoadedText"), false);
 
+      window.setTimeout(() => {
+        if (state.els.status?.classList.contains("success")) {
+          state.els.status.classList.add("hidden");
+        }
+      }, 3200);
+    }
+  } catch (error) {
+    console.error("Sentinel-1 comparison layer failed:", error);
+
+    state.sentinel1.damagedVisible = false;
+    state.sentinel1.analyzedVisible = false;
+    updateSentinel1LayerVisibility();
+    renderImageryComparisonPanel(state.latestSelectedProductInfo);
+
+    setStatus(
+      "error",
+      t("sentinel1ErrorTitle"),
+      `${t("sentinel1ErrorText")}${error.message ? ` (${error.message})` : ""}`,
+      false
+    );
+  }
+}
+
+function renderSentinel1ComparisonSection() {
+  const sentinelState = state.sentinel1 || {};
+  const opacityPercent = Math.round((sentinelState.opacity ?? 0.72) * 100);
+
+  return `
+    <div class="imagery-panel-section sentinel-comparison-section">
+      <div class="imagery-section-title">${escapeHtml(t("sentinel1RadarAnalysis"))}</div>
+
+      <div class="sentinel-toggle-list">
+        <label class="sentinel-toggle-row">
+          <input
+            class="imagery-checkbox"
+            type="checkbox"
+            data-sentinel1-toggle="analyzed"
+            ${sentinelState.analyzedVisible ? "checked" : ""}
+          />
+          <span class="sentinel-area-swatch"></span>
+          <span>${escapeHtml(t("sentinel1AnalyzedArea"))}</span>
+        </label>
+
+        <label class="sentinel-toggle-row">
+          <input
+            class="imagery-checkbox"
+            type="checkbox"
+            data-sentinel1-toggle="damaged"
+            ${sentinelState.damagedVisible ? "checked" : ""}
+          />
+          <span class="sentinel-damage-swatch"></span>
+          <span>${escapeHtml(t("sentinel1LikelyDamagedStructures"))}</span>
+        </label>
+      </div>
+
+      <label class="sentinel-opacity-row ${sentinelState.damagedVisible ? "" : "hidden"}">
+        <span>${escapeHtml(t("sentinel1Opacity"))}</span>
+        <input
+          type="range"
+          min="0"
+          max="100"
+          step="5"
+          value="${opacityPercent}"
+          data-sentinel1-opacity="1"
+        />
+        <strong data-sentinel1-opacity-value="1">${opacityPercent}%</strong>
+      </label>
+
+      <p class="sentinel-note">${escapeHtml(t("sentinel1Note"))}</p>
+    </div>
+  `;
+}
+
+function renderCopernicusSourceImagerySection(cogs) {
   const productKeys = new Set(cogs.map((item) => String(item.productKey || "")));
   const showProductBadge = productKeys.size > 1;
+
+  if (!cogs.length) {
+    return `
+      <div class="imagery-panel-section">
+        <div class="imagery-section-title">${escapeHtml(t("copernicusSourceImagery"))}</div>
+        <div class="imagery-empty">${escapeHtml(t("noCopernicusSourceImagery"))}</div>
+      </div>
+    `;
+  }
 
   const overlayMode = cogs.length > 1
     ? `
@@ -1564,13 +1679,37 @@ export function renderImageryComparisonPanel(info = state.latestSelectedProductI
     `;
   }).join("");
 
-  body.innerHTML = `
-    ${overlayMode}
-    <div class="imagery-list">
-      ${rows}
+  return `
+    <div class="imagery-panel-section">
+      <div class="imagery-section-title">${escapeHtml(t("copernicusSourceImagery"))}</div>
+      ${overlayMode}
+      <div class="imagery-list">
+        ${rows}
+      </div>
     </div>
   `;
+}
 
+export function renderImageryComparisonPanel(info = state.latestSelectedProductInfo) {
+  const panel = document.getElementById("source-imagery-panel");
+  const body = document.getElementById("source-imagery-body");
+
+  if (!panel || !body) {
+    return;
+  }
+
+  const cogs = getSortedImageryItems(info);
+
+  panel.classList.remove("hidden");
+  panel.classList.remove("collapsed");
+
+  body.innerHTML = `
+    ${renderCopernicusSourceImagerySection(cogs)}
+    ${renderSentinel1ComparisonSection()}
+  `;
+
+  updateImageryCompactStatus(info);
+  updateImageryPanelButton();
   scheduleImageryAutoCompact();
 }
 
