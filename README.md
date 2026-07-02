@@ -969,6 +969,1235 @@ This project is independent and unofficial. It is not endorsed by Copernicus, th
 
 ## Development log
 
+## **Development log**
+
+**[02 July 2026]-1 — Sentinel-1 integration and experimental comparison overlay**
+
+---
+
+This section records the design reasoning, data decisions, implementation details, UI choices, debugging steps, and final behavior for the **experimental Sentinel-1 radar damage-likelihood comparison layer** added on **02 July 2026**.
+
+The main purpose of this update was to add a complementary, optional, experimental Sentinel-1 damage-likelihood overlay to the existing Copernicus EMSR884 dashboard, while preserving the existing Copernicus product model and avoiding confusion between official Copernicus EMS grading layers and a separate NASA/OSU experimental radar-derived analysis.
+
+The final design adds Sentinel-1 as an **independent comparison overlay** inside the top-left **Comparison layers** panel, alongside the existing Copernicus source imagery controls.
+
+---
+
+### **1. Initial motivation**
+
+The dashboard already supported:
+
+- dynamic Copernicus EMSR884 AOI selection
+- official Copernicus EMS product selection
+- product-scoped Copernicus vector damage layers
+- Copernicus source imagery COG/TIFF rendering
+- AOI outlines
+- dynamic product-specific legends
+- multilingual UI
+- mobile-compatible layer controls
+
+However, Copernicus EMSR884 does not provide completed public grading vector layers for every affected area. Some AOIs are completed, some are in progress, some are planned, and some are marked as not produced. This means the official Copernicus EMS vector coverage is spatially and temporally incomplete.
+
+A separate NASA Earthdata / Oregon State University Sentinel-1 experimental product became available:
+
+**Sentinel-1 Likelihood of Damaged Structures (Experimental) for the Venezuela Earthquake June 2026**
+
+The product estimates likely damaged/destroyed structures from Sentinel-1 radar coherent change detection. It covers a broader affected region related to EMSR884 and provides a regional set of building footprints flagged as likely damaged.
+
+The key motivation was therefore:
+
+> Add the Sentinel-1 layer as a complementary comparison layer so users can compare official Copernicus EMS assessments, Copernicus source imagery, and experimental radar-based likely damage indications in the same AOI/city map view.
+
+The intended user workflow became:
+
+1. Select a Copernicus AOI, such as Caracas, Moron, San Felipe, or Caraballeda.
+2. View the official Copernicus EMS vector damage layers where available.
+3. Optionally enable Copernicus source imagery.
+4. Optionally enable the experimental Sentinel-1 radar analysis.
+5. Compare the three information sources visually:
+   - official Copernicus EMS grading/vector layers
+   - official Copernicus source imagery
+   - experimental Sentinel-1 likely damaged structures and analyzed-area boundary
+
+---
+
+### **2. Important source distinction**
+
+A key design question was whether the Sentinel-1 layer should be treated as another Copernicus layer.
+
+The final decision was:
+
+> Do not treat the NASA/OSU Sentinel-1 product as an official Copernicus EMS product layer.
+
+Reasoning:
+
+- Sentinel-1 is part of the European Copernicus satellite program, but this specific damage analysis is not a Copernicus EMS Rapid Mapping product.
+- The dashboard’s primary official source remains Copernicus EMSR884.
+- The Sentinel-1 layer is an experimental, unvalidated radar-derived analysis hosted/published through NASA Earthdata / ArcGIS infrastructure and credited to Oregon State University researchers.
+- Its model field `damage_probability` is not equivalent to Copernicus EMS classes such as `Destroyed`, `Damaged`, or `Possibly damaged`.
+- It should not alter Copernicus AOI/product status.
+- It should not be mixed into Copernicus EMS product-specific legends.
+
+Therefore, the Sentinel-1 layer was implemented as a separate **comparison overlay**, not as a Copernicus product.
+
+---
+
+### **3. Panel naming decision**
+
+The existing top-left panel had previously been dedicated to:
+
+```text
+Copernicus source imagery
+```
+
+The first idea was to rename it to something like:
+
+```text
+Comparison layers (Copernicus source)
+```
+
+or:
+
+```text
+Copernicus-Sentinel source imagery / analysis
+```
+
+This was rejected because it could confuse several different concepts:
+
+- Copernicus EMS Rapid Mapping products
+- Copernicus Sentinel-1 satellite data
+- NASA/OSU experimental analysis based on Sentinel-1
+- source imagery versus derived damage analysis
+
+The final panel title became:
+
+```text
+Comparison layers
+```
+
+Inside the panel, the content is divided into two distinct subsections:
+
+```text
+Copernicus source imagery
+
+Experimental Sentinel-1 radar analysis
+```
+
+This keeps the comparison workflow intuitive while preserving source and authority distinctions.
+
+---
+
+### **4. UI architecture decision**
+
+The Sentinel-1 layer is designed as an **independent overlay**.
+
+This means it can be used:
+
+- alone over the normal satellite basemap
+- with the Copernicus EMS vector layers
+- with Copernicus source imagery
+- with both Copernicus source imagery and Copernicus EMS vector layers
+- on any selected AOI/city view
+- independently of the selected Copernicus product
+
+This was important because Sentinel-1 is regional rather than AOI-product-scoped.
+
+The selected Copernicus AOI still controls the map focus, but the Sentinel-1 overlay is not restricted to one Copernicus product package.
+
+The final interaction model:
+
+```text
+Copernicus source imagery:
+  selectable imagery comparison rows
+  one active by default unless overlay mode is enabled
+
+Sentinel-1 radar analysis:
+  independent overlay controls
+  can be enabled with or without Copernicus source imagery
+  can be enabled with or without Copernicus EMS vector layers
+```
+
+---
+
+### **5. Sentinel-1 data source**
+
+The source product is the NASA Earthdata / ArcGIS item:
+
+```text
+Sentinel-1 Likelihood of Damaged Structures (Experimental) for the Venezuela Earthquake June 2026
+```
+
+ArcGIS item information included:
+
+```text
+Item created: 28 June 2026
+Item updated: 30 June 2026
+```
+
+REST endpoint listed by the source page:
+
+```text
+https://services7.arcgis.com/WSiUmUhlFx4CtMBB/ArcGIS/rest/services/202610_s1_likelydmgareas/FeatureServer
+```
+
+Data download folder:
+
+```text
+S1_Damage_Prelim_EMSR884
+```
+
+The README described the product as:
+
+```text
+Venezuela Earthquake — Building Damage Assessment (Delivery v0)
+```
+
+The product estimates approximately:
+
+```text
+58,870 likely damaged or destroyed buildings
+```
+
+across the affected region.
+
+---
+
+### **6. Source data interpretation**
+
+The Sentinel-1 product uses radar coherent change detection.
+
+Important source description:
+
+- Post-event Sentinel-1 swaths:
+  - 24 June 2026 around 22:49 / 22:50 UTC
+  - 25 June 2026 around 10:16 UTC
+- Pre-event reference acquisitions:
+  - 65 matched/reference Sentinel-1 acquisitions
+  - from 17 June 2025 to 23 June 2026
+- Building footprints:
+  - Overture Maps Foundation
+- Method:
+  - Sentinel-1 coherence-loss / abrupt radar change detection
+  - building is labeled damaged when at least 50% of the footprint intersects the coherence-loss damage map
+- Calibration:
+  - threshold calibrated against USGS ShakeMap so the false-alarm rate stays at or below about 1% in lightly shaken areas
+- Coverage:
+  - about 75% of dry land was assessed
+  - gaps remain where radar passes did not overlap or where areas were outside usable coverage
+
+Important interpretation caution:
+
+> Empty areas outside the analyzed-area boundary do not mean “no damage.” They mean “not assessed by this Sentinel-1 product.”
+
+This is why the analyzed-area layer is essential.
+
+---
+
+### **7. Files in the source package**
+
+The source package contained these relevant spatial files:
+
+```text
+EMSR884_damage_20260625_v0.geojson
+EMSR884_damage_20260625_v0.gpkg
+EMSR884_damage_20260625_v0_damaged.geojson
+EMSR884_damage_20260625_v0_damaged.gpkg
+EMSR884_analyzed_area_20260625_v0.geojson
+EMSR884_analyzed_area_20260625_v0.gpkg
+README.md
+```
+
+Observed sizes:
+
+```text
+EMSR884_damage_20260625_v0.geojson              about 1.2 GB
+EMSR884_damage_20260625_v0.gpkg                 about 730 MB
+EMSR884_damage_20260625_v0_damaged.geojson      about 27 MB
+EMSR884_damage_20260625_v0_damaged.gpkg         about 16.3 MB
+EMSR884_analyzed_area_20260625_v0.geojson       about 389.9 KB
+EMSR884_analyzed_area_20260625_v0.gpkg          about 236 KB
+```
+
+The full all-buildings layer was intentionally not used in the browser because it is too large for a static public web dashboard.
+
+---
+
+### **8. Runtime files selected**
+
+The final runtime implementation uses:
+
+```text
+data/sentinel1_emsr884_analyzed_area.geojson
+data/sentinel1_emsr884_damaged_structures.pmtiles
+```
+
+The source files were placed locally under:
+
+```text
+source_data/S1_Damage_Prelim_EMSR884/
+```
+
+with:
+
+```text
+source_data/S1_Damage_Prelim_EMSR884/EMSR884_analyzed_area_20260625_v0.geojson
+source_data/S1_Damage_Prelim_EMSR884/EMSR884_damage_20260625_v0_damaged.geojson
+```
+
+The source-data folder is ignored by git because it is a local/preprocessing input location, not a browser runtime directory.
+
+---
+
+### **9. Why the analyzed area remains GeoJSON**
+
+The analyzed-area file is small:
+
+```text
+389.9 KB
+```
+
+It is also conceptually a coverage/uncertainty boundary that should be visible at lower zoom levels.
+
+Therefore it is served directly as GeoJSON:
+
+```text
+data/sentinel1_emsr884_analyzed_area.geojson
+```
+
+This keeps the implementation simpler and avoids unnecessary tiling of a small polygon layer.
+
+The analyzed-area layer is styled as:
+
+- low-opacity cyan/blue fill
+- dashed cyan outline
+- visible as a coverage boundary
+- not treated as a damage layer
+
+---
+
+### **10. Why damaged structures were converted to PMTiles**
+
+The damaged-structures GeoJSON is about:
+
+```text
+27 MB
+```
+
+and contains:
+
+```text
+58,870 building polygon features
+```
+
+Loading this raw GeoJSON directly in the browser would require the browser to:
+
+1. download 27 MB
+2. parse the whole JSON document
+3. allocate many JavaScript objects
+4. pass data to MapLibre workers
+5. index/tile geometries client-side
+6. render tens of thousands of polygons
+
+This is risky for mobile and slower browsers.
+
+The final production strategy was:
+
+> Convert the damaged subset to PMTiles once locally and serve the static PMTiles file from GitHub Pages.
+
+This preserves the project’s zero-backend architecture:
+
+- no backend server
+- no database
+- no API key
+- no build step for public users
+- GitHub Pages compatible
+- browser loads only needed vector tiles
+
+---
+
+### **11. PMTiles conversion**
+
+Tippecanoe was already installed locally:
+
+```text
+tippecanoe v2.80.0
+```
+
+The conversion command used the damaged-only GeoJSON as input and created a PMTiles file:
+
+```bash
+tippecanoe \
+  -f \
+  -o data/sentinel1_emsr884_damaged_structures.pmtiles \
+  --minimum-zoom=10 \
+  --maximum-zoom=15 \
+  --drop-densest-as-needed \
+  --extend-zooms-if-still-dropping \
+  --detect-shared-borders \
+  -y damage \
+  -y label \
+  -y coverage_fraction \
+  -y damage_probability \
+  -L "s1_damaged_structures:source_data/S1_Damage_Prelim_EMSR884/EMSR884_damage_20260625_v0_damaged.geojson"
+```
+
+Important source-layer name:
+
+```text
+s1_damaged_structures
+```
+
+The dashboard code expects this source-layer name.
+
+Tippecanoe reported:
+
+```text
+58870 features
+3608050 bytes of geometry and attributes
+465706 bytes of string pool
+```
+
+The resulting PMTiles file was:
+
+```text
+data/sentinel1_emsr884_damaged_structures.pmtiles
+```
+
+with a size of approximately:
+
+```text
+5.1 MB
+```
+
+This was a major performance improvement over the 27 MB raw GeoJSON.
+
+---
+
+### **12. Why the Sentinel-1 data was not split by AOI**
+
+A possible idea was to split the Sentinel-1 damaged-structures file by Copernicus AOI/city.
+
+This was deferred.
+
+Reasoning:
+
+- PMTiles already loads data by map tile and viewport.
+- The Sentinel-1 product is regional, not AOI-product-specific.
+- The selected Copernicus AOI already controls the camera/map focus.
+- Splitting by city would add preprocessing complexity.
+- A future AOI summary file could provide counts and coverage notes without splitting the map data.
+
+Final decision:
+
+> Do not split the Sentinel-1 map layer by AOI for now. Use one regional PMTiles overlay.
+
+A possible future enhancement is a small summary file such as:
+
+```text
+data/sentinel1_emsr884_aoi_summary.json
+```
+
+containing AOI-level counts and coverage status. This was considered useful but intentionally deferred to avoid unnecessary complexity in this iteration.
+
+---
+
+### **13. New data folder structure**
+
+The runtime data folder now contains:
+
+```text
+data/
+  README.md
+  sentinel1_emsr884_analyzed_area.geojson
+  sentinel1_emsr884_damaged_structures.pmtiles
+```
+
+The local source-data folder contains:
+
+```text
+source_data/
+  S1_Damage_Prelim_EMSR884/
+    EMSR884_analyzed_area_20260625_v0.geojson
+    EMSR884_damage_20260625_v0_damaged.geojson
+```
+
+The source-data folder is ignored by git.
+
+The `data/README.md` documents:
+
+- expected runtime Sentinel-1 files
+- PMTiles source-layer name
+- local PMTiles testing limitation
+
+---
+
+### **14. New Sentinel-1 JavaScript module**
+
+A new module was added:
+
+```text
+js/sentinel1.js
+```
+
+This module isolates Sentinel-1 specific logic from the existing Copernicus EMS logic.
+
+Responsibilities of `js/sentinel1.js`:
+
+- lazy-load PMTiles JavaScript library
+- register MapLibre `pmtiles://` protocol
+- load analyzed-area GeoJSON
+- add analyzed-area fill and outline layers
+- add damaged-structures vector-tile source
+- add damaged-structures fill and outline layers
+- style damaged structures by `damage_probability`
+- apply Sentinel-1 visibility state
+- apply Sentinel-1 opacity state
+- preserve correct map layer ordering
+- move labels back to top after adding layers
+
+This avoids mixing Sentinel-1 overlay logic into Copernicus product-scoped modules.
+
+---
+
+### **15. New configuration constants**
+
+New configuration was added to `js/config.js`.
+
+Important constants include:
+
+```js
+PMTILES_SCRIPT_URL
+SENTINEL1_CONFIG
+COMPARISON_LAYER_IDS
+```
+
+The Sentinel-1 config defines:
+
+```text
+analyzedSourceId
+damagedSourceId
+analyzedGeoJsonUrl
+damagedPmtilesUrl
+damagedSourceLayer
+attribution
+layerIds
+```
+
+Runtime paths:
+
+```text
+./data/sentinel1_emsr884_analyzed_area.geojson
+./data/sentinel1_emsr884_damaged_structures.pmtiles
+```
+
+Damaged PMTiles source-layer name:
+
+```text
+s1_damaged_structures
+```
+
+Layer IDs:
+
+```text
+sentinel1-analyzed-area-fill
+sentinel1-analyzed-area-outline
+sentinel1-damaged-structures-fill
+sentinel1-damaged-structures-outline
+```
+
+---
+
+### **16. New state model**
+
+A Sentinel-1 state object was added to `state.js`:
+
+```js
+sentinel1: {
+  damagedVisible: false,
+  analyzedVisible: false,
+  opacity: 0.72,
+  loaded: false,
+  analyzedLoaded: false,
+  damagedLoaded: false,
+}
+```
+
+The Sentinel-1 state is independent from:
+
+- selected AOI
+- selected Copernicus product
+- Copernicus COG source-image state
+- Copernicus vector-layer visibility state
+
+This matches the design decision that Sentinel-1 is a global comparison overlay, not a Copernicus product layer.
+
+---
+
+### **17. Comparison panel redesign**
+
+The former dedicated Copernicus source imagery panel was expanded into:
+
+```text
+Comparison layers
+```
+
+It now contains two subsections:
+
+```text
+Copernicus source imagery
+Experimental Sentinel-1 radar analysis
+```
+
+The panel still uses the same top-left map overlay location and preserves the auto-compact behavior developed earlier.
+
+The panel can now appear even when the current Copernicus product has no COG source imagery, because Sentinel-1 comparison controls are globally available.
+
+---
+
+### **18. Copernicus source imagery section**
+
+The Copernicus source imagery section preserves the previous behavior:
+
+- lists available Copernicus source images for selected product(s)
+- supports TIFF fallback links
+- supports opacity per source image
+- supports single-image comparison mode by default
+- supports overlay multiple images mode
+- source imagery remains off by default
+- images remain lazy-loaded
+
+If no Copernicus source imagery exists for the selected product, the section shows a small no-source-imagery message instead of hiding the entire comparison panel.
+
+---
+
+### **19. Sentinel-1 analysis section**
+
+The new Sentinel-1 section contains:
+
+```text
+Experimental Sentinel-1 radar analysis
+
+[ ] Analyzed area / Sentinel-1 coverage
+[ ] Likely damaged structures
+Opacity slider
+Legend
+Caution note
+```
+
+The analyzed-area toggle can be used alone.
+
+The likely-damaged-structures toggle is independent, but when the user enables it, the analyzed-area boundary is automatically enabled.
+
+Reason:
+
+> If likely damaged structures are shown, users also need the coverage boundary so empty areas outside the analysis footprint are not mistaken for no damage.
+
+The Sentinel-1 opacity slider affects damaged structures only. The analyzed-area boundary remains a coverage indicator.
+
+---
+
+### **20. Sentinel-1 map styling**
+
+The analyzed-area layer is styled as a coverage/uncertainty boundary:
+
+```text
+fill: low-opacity cyan/blue
+outline: cyan dashed line
+```
+
+The likely damaged structures are styled with a distinct magenta/pink/purple ramp rather than the existing Copernicus yellow/orange/red grading colors.
+
+This was deliberate.
+
+Copernicus EMS damage classes mean:
+
+```text
+Yellow = Possibly damaged
+Orange = Damaged
+Red = Destroyed
+```
+
+Sentinel-1 `damage_probability` means:
+
+```text
+higher model likelihood of likely damaged/destroyed
+```
+
+It is not a severity class.
+
+Therefore the Sentinel-1 style uses different colors:
+
+```text
+0.50 -> pale pink
+0.65 -> bright pink
+0.80 -> strong magenta/red
+1.00 -> dark purple-red
+```
+
+The MapLibre expression concept:
+
+```text
+interpolate damage_probability:
+  0.50  #ffb3d9
+  0.65  #ff6aa2
+  0.80  #e11d5f
+  1.00  #6b0035
+```
+
+The damaged fill starts at:
+
+```text
+minzoom: 10
+```
+
+The damaged outline starts at:
+
+```text
+minzoom: 12
+```
+
+This helps avoid visual clutter and improves performance.
+
+---
+
+### **21. Sentinel-1 legend decision**
+
+Initially, after enabling the new Sentinel-1 layer, it lacked a proper legend.
+
+A legend was necessary because the color ramp is meaningful.
+
+The final decision:
+
+> Add a mini Sentinel-1 legend inside the Sentinel-1 subsection of the Comparison layers panel.
+
+The legend appears only when:
+
+```text
+Likely damaged structures
+```
+
+is active.
+
+It does not appear when only the analyzed-area boundary is active, because the analyzed-area toggle row already acts as its own swatch/legend.
+
+The legend bins are:
+
+```text
+Model likelihood 0.50–0.65
+Model likelihood 0.65–0.80
+Model likelihood 0.80–1.00
+```
+
+The labels intentionally avoid terms such as:
+
+```text
+minor damage
+major damage
+destroyed
+confirmed damage
+```
+
+because `damage_probability` is a model-likelihood field, not a validated damage-severity class.
+
+The swatches visually respect the Sentinel-1 opacity slider through a CSS variable, while the text labels remain unchanged.
+
+This makes the legend consistent with the map without implying that opacity changes the underlying data.
+
+---
+
+### **22. Layer ordering**
+
+The final intended layer order is:
+
+```text
+basemap
+Copernicus source imagery COG raster
+Sentinel-1 analyzed-area coverage fill/outline
+Sentinel-1 likely damaged structures
+Copernicus EMS official vector layers
+AOI outline
+street labels
+```
+
+The reasoning:
+
+- Copernicus source imagery should sit below analysis overlays.
+- Sentinel-1 should be visible as a comparison overlay.
+- Official Copernicus EMS vector layers should remain visually authoritative and not be hidden beneath experimental data.
+- AOI outline and labels should remain readable on top.
+
+The COG renderer was adjusted so that source imagery is inserted below comparison overlays as well as below Copernicus EMS vector layers.
+
+---
+
+### **23. PMTiles local testing issue**
+
+During local testing with:
+
+```bash
+python3 -m http.server 8080
+```
+
+the Sentinel-1 PMTiles layer produced a console error:
+
+```text
+Server returned no content-length header or content-length exceeding request.
+Check that your storage backend supports HTTP Byte Serving.
+```
+
+This came from the PMTiles library.
+
+Cause:
+
+> PMTiles normally depends on HTTP byte-range requests. Python’s basic local server may not correctly support the byte-range behavior expected by PMTiles.
+
+This was not a data problem.
+
+The PMTiles file itself was valid and worked on GitHub Pages.
+
+A fallback approach was considered:
+
+- detect when the server does not support range requests
+- download the whole 5.1 MB PMTiles file into memory
+- serve byte ranges from the in-memory buffer during the browser session
+
+This would make local Python testing work, but it would add complexity.
+
+Final decision:
+
+> Do not add the local PMTiles fallback for now because GitHub Pages works correctly and the production code should remain simpler.
+
+The local limitation is documented in:
+
+```text
+data/README.md
+```
+
+If local PMTiles testing becomes important later, use either:
+
+- a local server with proper HTTP range support, or
+- the in-memory PMTiles fallback patch considered during this iteration
+
+---
+
+### **24. Patch/debugging process**
+
+The first large patch performed the data preprocessing successfully:
+
+- copied analyzed-area GeoJSON into `data/`
+- converted damaged structures to PMTiles
+- produced a 5.1 MB PMTiles file
+
+However, the code patch failed with:
+
+```text
+RuntimeError: Could not find expected text for: insert Sentinel-1 state
+```
+
+The cause was a brittle exact string replacement in `state.js`; the actual whitespace/newlines did not match the expected pattern.
+
+Because the Python patch was designed to write code files only after all replacements succeeded, the failed code patch did not partially corrupt the app.
+
+A second patch fixed this by using a more flexible regex replacement for the state insertion.
+
+The second patch successfully added:
+
+- `js/sentinel1.js`
+- Sentinel-1 state
+- config constants
+- translations
+- UI controls
+- CSS
+- data README
+- gitignore entries
+
+After deploying to GitHub Pages, the Sentinel-1 PMTiles layer worked in production.
+
+A later patch added:
+
+- Sentinel-1 mini legend
+- footer credit
+- documentation of local PMTiles limitation
+- final git add / commit / push workflow
+
+---
+
+### **25. Footer credit**
+
+The footer originally credited only:
+
+```text
+Copernicus EMS Rapid Mapping
+```
+
+Since the dashboard now includes a second source, a separate Sentinel-1 credit line was added rather than changing the Copernicus source line.
+
+The footer now includes a credit conceptually equivalent to:
+
+```text
+Experimental Sentinel-1 layer
+
+Please cite as: Damage analysis of Copernicus Sentinel-1 data by Corey Scher and Jamon Van Den Hoek of Oregon State University. Overture Maps Foundation building footprint data.
+```
+
+This keeps the attribution transparent and prevents the Sentinel-1 layer from appearing to be an official Copernicus EMS layer.
+
+---
+
+### **26. Translations added**
+
+New multilingual labels were added for:
+
+```text
+comparisonLayers
+copernicusSourceImagery
+noCopernicusSourceImagery
+sentinel1RadarAnalysis
+sentinel1LikelyDamagedStructures
+sentinel1AnalyzedArea
+sentinel1Opacity
+sentinel1Note
+sentinel1LoadingTitle
+sentinel1LoadingText
+sentinel1LoadedTitle
+sentinel1LoadedText
+sentinel1ErrorTitle
+sentinel1ErrorText
+sentinel1LegendTitle
+sentinel1LikelihoodLow
+sentinel1LikelihoodMedium
+sentinel1LikelihoodHigh
+sentinel1CreditTitle
+sentinel1CreditText
+```
+
+Translations were added for:
+
+- Spanish
+- English
+- Italian
+- Chinese
+
+The language design keeps the experimental status explicit in all languages.
+
+---
+
+### **27. Ethical and interpretation safeguards**
+
+Several interpretation safeguards were intentionally included.
+
+The UI and documentation avoid saying:
+
+```text
+confirmed damage
+destroyed buildings
+safe area
+no damage
+NASA confirmed
+official damage census
+```
+
+Instead, wording uses concepts such as:
+
+```text
+Experimental Sentinel-1 radar analysis
+Likely damaged structures
+Model likelihood
+Not field validated
+Abrupt radar change consistent with damage
+Outside analyzed area means not assessed
+Not a confirmed building-by-building census
+```
+
+This is essential because:
+
+- the product is preliminary
+- it is not field validated
+- it is based on radar coherence change
+- the underlying analysis resolution is coarser than individual building footprints
+- omission and commission errors are expected
+- building-footprint display can create a false sense of precision
+
+The dashboard’s existing ethical scope remains unchanged:
+
+- not a rescue tool
+- not an evacuation tool
+- not an official command tool
+- no casualty, rescue, medical, missing-person, or personal data
+- public situational awareness only
+
+---
+
+### **28. Important interpretation note: building footprints and radar resolution**
+
+The Sentinel-1 product displays building footprints, but the underlying radar coherence-change analysis has a much coarser effective resolution.
+
+Therefore a user should not interpret one highlighted footprint as:
+
+```text
+this exact building is confirmed damaged
+```
+
+The safer interpretation is:
+
+```text
+this building footprint was flagged by an experimental model because it intersects radar change consistent with likely damage
+```
+
+The UI uses `Likely damaged structures` and `Model likelihood` rather than official damage-grade terms.
+
+---
+
+### **29. Current final Sentinel-1 behavior**
+
+Current behavior after the 02 July update:
+
+1. The top-left panel is now titled:
+
+   ```text
+   Comparison layers
+   ```
+
+2. The panel contains:
+
+   ```text
+   Copernicus source imagery
+   Experimental Sentinel-1 radar analysis
+   ```
+
+3. Copernicus source imagery behavior remains available and lazy-loaded.
+
+4. Sentinel-1 analyzed area can be enabled independently.
+
+5. Sentinel-1 likely damaged structures can be enabled independently.
+
+6. Enabling likely damaged structures automatically enables analyzed-area coverage.
+
+7. Sentinel-1 likely damaged structures are loaded from:
+
+   ```text
+   data/sentinel1_emsr884_damaged_structures.pmtiles
+   ```
+
+8. Sentinel-1 analyzed area is loaded from:
+
+   ```text
+   data/sentinel1_emsr884_analyzed_area.geojson
+   ```
+
+9. Sentinel-1 damaged structures use a magenta/pink/purple `damage_probability` ramp.
+
+10. Sentinel-1 opacity is user-controlled.
+
+11. The Sentinel-1 mini legend appears only when likely damaged structures are active.
+
+12. The legend bins are model-likelihood bins, not damage-severity classes.
+
+13. Sentinel-1 can be viewed with:
+    - only the satellite basemap
+    - Copernicus EMS vector layers
+    - Copernicus source imagery
+    - both Copernicus imagery and Copernicus vector layers
+
+14. GitHub Pages successfully serves the PMTiles layer.
+
+15. Local Python server may not support PMTiles byte-range loading; this is documented.
+
+---
+
+### **30. Files added or modified**
+
+New runtime data files:
+
+```text
+data/sentinel1_emsr884_analyzed_area.geojson
+data/sentinel1_emsr884_damaged_structures.pmtiles
+data/README.md
+```
+
+New JavaScript module:
+
+```text
+js/sentinel1.js
+```
+
+Modified application files include:
+
+```text
+index.html
+style.css
+js/config.js
+js/state.js
+js/cog-renderer.js
+js/ui.js
+.gitignore
+```
+
+Local source data folder:
+
+```text
+source_data/S1_Damage_Prelim_EMSR884/
+```
+
+Ignored by git:
+
+```text
+source_data/
+_patch_backups/
+```
+
+---
+
+### **31. Current known limitation**
+
+The main known limitation is local PMTiles testing with:
+
+```bash
+python3 -m http.server 8080
+```
+
+This may fail for the damaged-structures PMTiles layer because of missing or incompatible HTTP byte-range behavior.
+
+The production GitHub Pages deployment works.
+
+Future solutions if needed:
+
+1. Use a range-capable local static server.
+2. Add an in-memory PMTiles fallback for local testing.
+3. Serve PMTiles from another static host with confirmed range support.
+4. Use a development server specifically configured for byte serving.
+
+For now, this is intentionally left as a documented limitation rather than adding extra code.
+
+---
+
+### **32. Future possible improvements**
+
+Possible future improvements include:
+
+#### **1. AOI-level Sentinel-1 summary**
+
+Generate a small file such as:
+
+```text
+data/sentinel1_emsr884_aoi_summary.json
+```
+
+with:
+
+- AOI number
+- AOI name
+- whether the Sentinel-1 analyzed area intersects the AOI
+- count of likely damaged structures inside the AOI
+- count by model-likelihood bins
+- coverage notes
+
+This was considered useful but deferred.
+
+#### **2. Better popups**
+
+Future popups could show:
+
+- source: experimental Sentinel-1 radar analysis
+- damage_probability
+- coverage_fraction
+- label
+- caution text
+
+Popups should be written carefully to avoid implying confirmed building damage.
+
+#### **3. Probability filters**
+
+The UI could later add toggles for:
+
+```text
+0.50–0.65
+0.65–0.80
+0.80–1.00
+```
+
+This would allow users to focus on high-likelihood detections.
+
+#### **4. Better local PMTiles support**
+
+A future local fallback could allow `python3 -m http.server` to work by downloading the full 5.1 MB PMTiles file once and serving ranges from memory.
+
+This was not implemented because GitHub Pages works and the current code is simpler.
+
+#### **5. Source metadata panel**
+
+A small metadata/details button could show:
+
+- post-event acquisition dates
+- pre-event reference stack period
+- method summary
+- coverage statement
+- citation
+- limitations
+
+This would help users understand the Sentinel-1 layer without overcrowding the main UI.
+
+---
+
+### **33. Main design principles established on 02 July 2026**
+
+The Sentinel-1 integration established these principles:
+
+1. Keep official Copernicus EMS products and experimental Sentinel-1 analysis clearly separated.
+
+2. Make comparison easy, but do not merge source authority.
+
+3. Treat Sentinel-1 as an independent overlay, not as a Copernicus product.
+
+4. Always show or strongly encourage the analyzed-area boundary when showing Sentinel-1 likely damage.
+
+5. Do not interpret outside the analyzed area as no damage.
+
+6. Do not interpret absence of likely damaged structures as confirmed safety.
+
+7. Do not interpret `damage_probability` as Copernicus EMS damage severity.
+
+8. Use PMTiles for large regional polygon overlays.
+
+9. Keep small coverage/uncertainty polygons as simple GeoJSON when appropriate.
+
+10. Preserve the static, zero-backend, GitHub Pages-friendly architecture.
+
+11. Keep the UI multilingual and cautious.
+
+12. Add explicit credit for non-Copernicus-EMS sources.
+
+---
+
+### **34. Summary of the 02 July result**
+
+By the end of this update, the dashboard gained a new experimental comparison capability:
+
+```text
+Copernicus EMS official layers
++
+Copernicus source imagery
++
+NASA/OSU Sentinel-1 experimental radar damage-likelihood overlay
+```
+
+This makes the dashboard more useful for public situational awareness because users can compare different satellite-derived perspectives in the same AOI view.
+
+At the same time, the implementation avoids presenting the Sentinel-1 layer as official Copernicus EMS damage grading.
+
+The final result is a more flexible comparison dashboard that remains:
+
+- static
+- lightweight
+- browser-native
+- GitHub Pages compatible
+- multilingual
+- ethically cautious
+- source-transparent
+- zero-backend
+
+
+
 
 
 **[28 June 2026]-3 — Copernicus source imagery promoted to a dedicated image-comparison panel**
