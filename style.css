@@ -2409,3 +2409,77 @@ h1 {
   }
 }
 /* Comparison layers / Sentinel-1 overlay: end */
+
+
+/* Sentinel-1 mini legend and credit: start */
+.sentinel-mini-legend {
+  display: grid;
+  gap: 7px;
+  padding: 9px 10px;
+  border: 1px solid rgba(255, 105, 180, 0.15);
+  border-radius: 12px;
+  background:
+    linear-gradient(90deg, rgba(255, 105, 180, 0.055), rgba(140, 199, 255, 0.035)),
+    rgba(255, 255, 255, 0.025);
+}
+
+.sentinel-mini-legend-title {
+  color: rgba(244, 247, 251, 0.92);
+  font-size: 0.72rem;
+  font-weight: 950;
+  letter-spacing: 0.04em;
+  line-height: 1.15;
+  text-transform: uppercase;
+}
+
+.sentinel-mini-legend-row {
+  display: grid;
+  grid-template-columns: 30px minmax(0, 1fr);
+  gap: 9px;
+  align-items: center;
+  min-height: 22px;
+  color: rgba(216, 222, 233, 0.88);
+  font-size: 0.76rem;
+  font-weight: 760;
+  line-height: 1.25;
+}
+
+.sentinel-likelihood-swatch {
+  width: 30px;
+  height: 16px;
+  border: 1px solid rgba(255, 255, 255, 0.24);
+  border-radius: 4px;
+  opacity: var(--sentinel-swatch-opacity, 1);
+  box-shadow: 0 0 10px rgba(225, 29, 95, 0.14);
+}
+
+.sentinel-likelihood-swatch.low {
+  background: #ffb3d9;
+}
+
+.sentinel-likelihood-swatch.medium {
+  background: #ff6aa2;
+}
+
+.sentinel-likelihood-swatch.high {
+  background: #6b0035;
+}
+
+.footer-sentinel-credit {
+  margin-top: 10px !important;
+  padding-top: 10px;
+  border-top: 1px solid rgba(255, 255, 255, 0.08);
+  line-height: 1.5;
+}
+
+.footer-sentinel-credit strong {
+  display: block;
+  margin-bottom: 4px;
+  color: #d8dee9;
+  font-size: 0.82rem;
+}
+
+.footer-sentinel-credit span {
+  color: var(--muted);
+}
+/* Sentinel-1 mini legend and credit: end */

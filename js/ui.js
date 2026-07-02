@@ -1547,6 +1547,35 @@ async function syncSentinel1ComparisonLayerFromState(showMessages = false) {
   }
 }
 
+function renderSentinel1LikelihoodLegend(sentinelState = state.sentinel1 || {}) {
+  if (!sentinelState?.damagedVisible) {
+    return "";
+  }
+
+  const opacity = Math.max(0, Math.min(1, Number(sentinelState.opacity ?? 0.72)));
+
+  return `
+    <div class="sentinel-mini-legend" style="--sentinel-swatch-opacity: ${opacity.toFixed(2)}">
+      <div class="sentinel-mini-legend-title">${escapeHtml(t("sentinel1LegendTitle"))}</div>
+
+      <div class="sentinel-mini-legend-row">
+        <span class="sentinel-likelihood-swatch low"></span>
+        <span>${escapeHtml(t("sentinel1LikelihoodLow"))}</span>
+      </div>
+
+      <div class="sentinel-mini-legend-row">
+        <span class="sentinel-likelihood-swatch medium"></span>
+        <span>${escapeHtml(t("sentinel1LikelihoodMedium"))}</span>
+      </div>
+
+      <div class="sentinel-mini-legend-row">
+        <span class="sentinel-likelihood-swatch high"></span>
+        <span>${escapeHtml(t("sentinel1LikelihoodHigh"))}</span>
+      </div>
+    </div>
+  `;
+}
+
 function renderSentinel1ComparisonSection() {
   const sentinelState = state.sentinel1 || {};
   const opacityPercent = Math.round((sentinelState.opacity ?? 0.72) * 100);
@@ -1591,6 +1620,8 @@ function renderSentinel1ComparisonSection() {
         />
         <strong data-sentinel1-opacity-value="1">${opacityPercent}%</strong>
       </label>
+
+      ${renderSentinel1LikelihoodLegend(sentinelState)}
 
       <p class="sentinel-note">${escapeHtml(t("sentinel1Note"))}</p>
     </div>
