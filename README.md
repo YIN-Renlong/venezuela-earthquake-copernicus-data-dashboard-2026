@@ -969,8 +969,6 @@ This project is independent and unofficial. It is not endorsed by Copernicus, th
 
 ## Development log
 
-## **Development log**
-
 **[02 July 2026]-1 — Sentinel-1 integration and experimental comparison overlay**
 
 ---
